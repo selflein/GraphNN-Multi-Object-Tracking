@@ -61,10 +61,7 @@ class GraphNNMOTracker:
 
     def train_dataloader(self):
         train = MOT16('../tracker', 'train')
-        train_loader = DataLoader(train,
-                                  batch_size=self.config.batch_size,
-                                  num_workers=self.config.num_workers)
-        return train_loader
+        return train
 
     def train(self):
         train_loader = self.train_dataloader()
@@ -81,50 +78,7 @@ class GraphNNMOTracker:
             self.net.train()
             train_metrics = defaultdict(list)
             pbar = tqdm(train_loader)
-            for i, batch in enumerate(pbar):
-                img_1, img_2, match_1, match_2 = batch
-                img_1 = img_1.to(self.device)
-                img_2 = img_2.to(self.device)
-                match_1 = match_1.to(self.device)
-                match_2 = match_2.to(self.device)
-                b, c, h, w = img_1.size()
-
-                out_1 = self.net(img_1)
-                out_2 = self.net(img_2)
-
-                if i % 100 == 1:
-                    self.writer.add_images('Features', out_1[:, :3, :, :])
-
-                num_neg_points = self.config.num_neg_points
-                num_pos_points = self.config.num_pos_points
-
-                if self.config.close_points:
-                    # Non matches in second image -> in ring around the matches
-                    match_2_repeat = match_2.repeat(1, num_neg_points, 1)
-                    num_offsets = match_2_repeat.size(1)
-                    # Ring has width 25 and 5 pixel distance to point
-                    vector_length = torch.rand((b, num_offsets)) * 25 + 5
-                    angle = torch.rand((b, num_offsets)) * (2 * math.pi)
-
-                    x_offsets = vector_length * torch.cos(angle)
-                    y_offsets = vector_length * torch.sin(angle)
-                    nonmatch_x = match_2_repeat[:, :, 0] + x_offsets
-                    nonmatch_y = match_2_repeat[:, :, 1] + y_offsets
-                    nonmatch_2 = torch.stack([nonmatch_x, nonmatch_y], dim=-1)
-
-                    # Ensure points are on the image
-                    nonmatch_2 = torch.clamp(nonmatch_2, 0, h - 1).long()
-                    nonmatch_2 = nonmatch_2.view(b, num_neg_points, num_pos_points, 2)
-
-                else:
-                    # Sample non-matching points randomly
-                    nonmatch_2 = torch.randint(0, h, (b, num_neg_points, num_pos_points, 2)).long()
-
-                if self.config.debug_output and (i % 10 == 1):
-                    fig1 = self.plot_matches_nonmatches(img_1, img_2, match_1, match_2, nonmatch_2)
-                    fig2 = self.visualize_correspondences(img_1, img_2, match_1, match_2)
-                    self.writer.add_figure('One match with nonmatches', fig1)
-                    self.writer.add_figure('Correspondences', fig2)
+            for i, sequence in enumerate(pbar):
 
                 loss = criterion(out_1, out_2, match_1, match_2, nonmatch_2)
 

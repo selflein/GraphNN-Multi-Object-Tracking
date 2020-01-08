@@ -5,8 +5,11 @@ import math
 
 
 class SpatialPyramidPool(nn.Module):
+    def __init__(self, levels):
+        super().__init__()
+        self.levels = levels
 
-    def forward(self, inp, levels):
+    def forward(self, inp):
         """
         Args:
             inp: Output tensor from a CNN of shape [b, c, h, w].
@@ -15,6 +18,7 @@ class SpatialPyramidPool(nn.Module):
         Returns:
              A tensor vector with shape [1 x n] with concentration of the multi-level pooling.
         """
+        levels = self.levels
         b, c, h, w = inp.shape
         out = []
         for i in range(len(levels)):
