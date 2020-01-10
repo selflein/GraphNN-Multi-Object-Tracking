@@ -79,6 +79,7 @@ class GraphNNMOTracker:
             train_metrics = defaultdict(list)
             pbar = tqdm(train_loader)
             for i, sequence in enumerate(pbar):
+                loader = DataLoader(sequence, batch_size=1, num_workers=4)
 
                 loss = criterion(out_1, out_2, match_1, match_2, nonmatch_2)
 

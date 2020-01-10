@@ -134,6 +134,13 @@ class MOT16Sequence(Dataset):
         sample['gt'] = data['gt']
         sample['vis'] = data['vis']
 
+        cropped_imgs = {}
+        for gt_id, box in sample['gt'].items():
+            box_crop = box.astype(np.int).clip(0, None)
+            crop = img[:, box_crop[1]:box_crop[3], box_crop[0]:box_crop[2]]
+            cropped_imgs[gt_id] = crop
+        sample['cropped_imgs'] = cropped_imgs
+
         # segmentation
         if data['seg_img'] is not None:
             seg_img = np.array(data['seg_img'])

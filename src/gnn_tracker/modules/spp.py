@@ -24,9 +24,9 @@ class SpatialPyramidPool(nn.Module):
         for i in range(len(levels)):
             h_wid = int(math.ceil(h / levels[i]))
             w_wid = int(math.ceil(w / levels[i]))
-            h_pad = (h_wid * levels[i] - h + 1) / 2
-            w_pad = (w_wid * levels[i] - w + 1) / 2
+            h_pad = int((h_wid * levels[i] - h + 1) / 2)
+            w_pad = int((w_wid * levels[i] - w + 1) / 2)
             maxpool = nn.MaxPool2d((h_wid, w_wid), stride=(h_wid, w_wid), padding=(h_pad, w_pad))
-            out.append(maxpool(inp))
+            out.append(maxpool(inp).reshape(b, -1))
 
         return torch.cat(out, dim=1)

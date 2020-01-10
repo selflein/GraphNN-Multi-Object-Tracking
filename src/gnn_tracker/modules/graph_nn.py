@@ -3,6 +3,7 @@ import numpy as np
 from torch import nn
 import torch.nn.functional as F
 from torchvision.models import vgg16_bn
+from torch_geometric.data import Data
 from torch_geometric.nn import TopKPooling
 from torch_geometric.nn import global_mean_pool as gap, global_max_pool as gmp
 
@@ -10,14 +11,24 @@ from src.gnn_tracker.modules.spp import SpatialPyramidPool
 from src.gnn_tracker.modules.message_passing import SAGEConv
 
 
+class AppearanceEncoder(nn.Module):
+    def __init__(self, levels):
+        super().__init__()
+        self.feats = vgg16_bn(pretrained=True).features[:14]
+        print(self.feats)
+        self.pool = SpatialPyramidPool(levels)
+
+    def forward(self, inp):
+        b, c, h, w = inp.shape
+        out = self.feats(inp)
+        out = self.pool(out)
+        return out
+
+
 class Net(torch.nn.Module):
     def __init__(self):
         super(Net, self).__init__()
-
-        self.appearance_encoder = nn.Sequential(
-            *vgg16_bn(pretrained=True).features,
-            SpatialPyramidPool(levels=[8, 4, 1])
-        )
+        self.appearance_encoder = AppearanceEncoder([8, 4, 1])
 
         self.conv1 = SAGEConv(128, 128)
         self.pool1 = TopKPooling(128, ratio=0.8)
@@ -35,14 +46,15 @@ class Net(torch.nn.Module):
         self.act1 = torch.nn.ReLU()
         self.act2 = torch.nn.ReLU()
 
-    def forward(self, sequence):
-        for frame in sequence:
-            gt = frame['gt']
-            img = frame['img']
-            for gt_id, box in gt.items():
-                box = box.astype(np.int).clip(0, None)
-                crop = img[:, box[1]:box[3], box[0]:box[2]]
-                encoding = self.appearance_encoder(crop.unsqueeze(0))
+    def forward(self, data_loader):
+        nodes = []
+        edges = []
+        for t, sample in enumerate(data_loader):
+            boxes = sample['gt']
+            imgs = sample['cropped_imgs']
+
+            for box_id, img in imgs.items():
+                img_encoding = self.appearance_encoder(img.unsqueeze(0))
 
         x, edge_index, batch = data.x, data.edge_index, data.batch
         x = self.item_embedding(x)
