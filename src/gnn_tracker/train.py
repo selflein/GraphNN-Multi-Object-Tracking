@@ -13,8 +13,10 @@ from IPython.core import ultratb
 from torch.utils.data import DataLoader
 from test_tube import Experiment
 from torchvision.models import vgg16_bn
+from torch_geometric.data import DataLoader
 
-from src.tracker.data_track import MOT16
+from src.gnn_tracker.modules.graph_nn import Net
+from src.gnn_tracker.data_utils.dataset import PreprocessedDataset
 
 
 sys.excepthook = ultratb.FormattedTB(mode='Verbose',
@@ -35,7 +37,8 @@ def get_parser():
     parser.add_argument('--base_lr', type=float, default=0.0001)
     parser.add_argument('--cuda', action='store_true')
     parser.add_argument('--workers', type=int, default=0)
-    parser.add_argument('--batch_size', type=int, default=32)
+    parser.add_argument('--batch_size', type=int, default=8)
+    parser.add_argument('--epochs', type=int, default=30)
 
     return parser
 
@@ -47,7 +50,7 @@ class GraphNNMOTracker:
         self.config = config
         self.device = torch.device('cuda' if config.cuda else 'cpu')
 
-        self.appearance_cnn = vgg16_bn(pretrained=True).to(self.device)
+        self.net = Net().to(self.device)
 
         log_dir = Path(
             self.writer.get_data_path(self.writer.name, self.writer.version))
@@ -60,7 +63,8 @@ class GraphNNMOTracker:
         self.epoch = 0
 
     def train_dataloader(self):
-        train = MOT16('../tracker', 'train')
+        ds = PreprocessedDataset(Path(self.config.dataset_path))
+        train = DataLoader(ds, batch_size=self.config.batch_size)
         return train
 
     def train(self):
@@ -78,10 +82,11 @@ class GraphNNMOTracker:
             self.net.train()
             train_metrics = defaultdict(list)
             pbar = tqdm(train_loader)
-            for i, sequence in enumerate(pbar):
-                loader = DataLoader(sequence, batch_size=1, num_workers=4)
-
-                loss = criterion(out_1, out_2, match_1, match_2, nonmatch_2)
+            for i, data in enumerate(pbar):
+                data = data.to(self.device)
+                gt = data.y
+                out = self.net(data)
+                loss = torch.tensor(0)
 
                 train_metrics['loss'].append(loss.item())
                 pbar.set_description(f"Loss: {loss.item()}")
@@ -152,5 +157,5 @@ if __name__ == '__main__':
                         flush_secs=15)
     logger.argparse(args)
 
-    model = SiameseNet(args, logger)
+    model = GraphNNMOTracker(args, logger)
     model.train()

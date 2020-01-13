@@ -53,12 +53,17 @@ if __name__ == '__main__':
     dataset = MOT16('./data/MOT16', 'train')
 
     for sequence in dataset:
+        tqdm.write('Processing "{}"'.format(str(sequence)))
         seq_out = out_dir / str(sequence)
         seq_out.mkdir(exist_ok=True)
 
         for i in tqdm(range(len(sequence) - 16)):
             subseq_out = seq_out / 'subseq_{}'.format(i)
-            subseq_out.mkdir(exist_ok=True)
+
+            try:
+                subseq_out.mkdir()
+            except FileExistsError:
+                continue
 
             edges = []  # (2, num_edges) with pairs of connected node ids
             edge_features = []  # (num_edges, num_feat_edges) edge_id with features
@@ -78,10 +83,14 @@ if __name__ == '__main__':
                     node_timestamps.append(t)
 
                     with torch.no_grad():
-                        img = resize(cropped[gt_id].numpy().transpose(1, 2, 0),
-                                     (256, 128))
-                        feat = net(torch.from_numpy(img).permute(2, 0, 1).unsqueeze(
-                            0).cuda()).cpu().squeeze().numpy()
+                        try:
+                            img = resize(cropped[gt_id].numpy().transpose(1, 2, 0),
+                                         (256, 128))
+                            feat = net(torch.from_numpy(img).permute(2, 0, 1).unsqueeze(
+                                0).cuda().float()).cpu().squeeze().numpy()
+                        except Exception as e:
+                            tqdm.write('Error when processing image: {}'.format(str(e)))
+                            continue
 
                     cur_nodes.append({'box': box,
                                       'gt_id': gt_id,
