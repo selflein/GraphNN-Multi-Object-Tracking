@@ -188,7 +188,7 @@ class GraphNNMOTracker:
             metrics = {k: np.mean(v)
                        for k, v in {**train_metrics, **val_metrics}.items()}
             self.writer.log(metrics, epoch)
-            if epoch % 10 == 1:
+            if epoch % 10 == 0 and epoch > 5:
                 self.save(self.model_save_dir / 'checkpoints_{}.pth'.format(epoch))
 
     def save(self, path: Path):

@@ -1,10 +1,13 @@
+import pickle
+import argparse
 from pathlib import Path
 
 import torch
 import numpy as np
 from tqdm import tqdm
-import matplotlib.pyplot as plt
+from skimage.io import imsave
 from skimage.transform import resize
+from sklearn.decomposition import PCA
 
 from src.tracker.data_track import MOT16
 from src.gnn_tracker.modules.re_id import ReID
@@ -43,21 +46,41 @@ def get_top_k_nodes(cur_node, existing_nodes, k=50):
         return sorted_nodes
 
 
-if __name__ == '__main__':
-    out_dir = Path('./data/preprocessed/')
-    out_dir.mkdir(exist_ok=True)
+def fit_pca(save_path: str, dataset_path: str, re_id_net):
+    dataset = MOT16(dataset_path, 'train')
 
-    net = ReID().to('cuda')
-    net.eval()
-
-    dataset = MOT16('./data/MOT16', 'train')
-
+    instances = []
     for sequence in dataset:
+
+        for i in tqdm(range(0, len(sequence), 50)):
+            item = sequence[i]
+            gt = item['gt']
+            cropped = item['cropped_imgs']
+
+            for gt_id, box in gt.items():
+                with torch.no_grad():
+                    try:
+                        img = resize(cropped[gt_id].numpy().transpose(1, 2, 0),
+                                     (256, 128))
+                        feat = re_id_net(torch.from_numpy(img).permute(2, 0, 1).unsqueeze(
+                            0).cuda().float()).cpu().squeeze().numpy()
+                        instances.append(feat)
+                    except Exception as e:
+                        tqdm.write('Error when processing image: {}'.format(str(e)))
+                        continue
+    print(f'Number of instances: {len(instances)}')
+    pca_transform = PCA(n_components=32)
+    pca_transform.fit(np.stack(instances))
+    pickle.dump(pca_transform, open(save_path, 'wb'))
+
+
+def preprocess(out_dir, re_id_net, mot_dataset, pca_transform, save_imgs=False):
+    for sequence in mot_dataset:
         tqdm.write('Processing "{}"'.format(str(sequence)))
         seq_out = out_dir / str(sequence)
         seq_out.mkdir(exist_ok=True)
 
-        for i in tqdm(range(len(sequence) - 16)):
+        for i in tqdm(range(len(sequence) - 15)):
             subseq_out = seq_out / 'subseq_{}'.format(i)
 
             try:
@@ -68,7 +91,6 @@ if __name__ == '__main__':
             edges = []  # (2, num_edges) with pairs of connected node ids
             edge_features = []  # (num_edges, num_feat_edges) edge_id with features
             gt_edges = []  # (num_edges) with 0/1 depending on edge is gt
-            node_timestamps = []  # (num_nodes,)
 
             existing_nodes = []
             node_id = 0
@@ -80,16 +102,18 @@ if __name__ == '__main__':
 
                 cur_nodes = []
                 for gt_id, box in gt.items():
-                    node_timestamps.append(t)
 
                     with torch.no_grad():
                         try:
                             img = resize(cropped[gt_id].numpy().transpose(1, 2, 0),
                                          (256, 128))
-                            feat = net(torch.from_numpy(img).permute(2, 0, 1).unsqueeze(
-                                0).cuda().float()).cpu().squeeze().numpy()
+                            feat = re_id_net(
+                                torch.from_numpy(img).permute(2, 0, 1).unsqueeze(
+                                    0).cuda().float()).cpu().numpy()
+                            feat = pca_transform.transform(feat).squeeze()
                         except Exception as e:
-                            tqdm.write('Error when processing image: {}'.format(str(e)))
+                            tqdm.write(
+                                'Error when processing image: {}'.format(str(e)))
                             continue
 
                     cur_nodes.append({'box': box,
@@ -104,18 +128,17 @@ if __name__ == '__main__':
                 for cur in cur_nodes:
                     best_nodes = get_top_k_nodes(cur, existing_nodes)
                     for ex in best_nodes:
-                        if True:
-                            ex_id, cur_id = ex['node_id'], cur['node_id']
-                            edges.append([ex_id, cur_id])
+                        ex_id, cur_id = ex['node_id'], cur['node_id']
+                        edges.append([ex_id, cur_id])
 
-                            gt_edges.append(0 if ex['gt_id'] != cur['gt_id'] else 1)
+                        gt_edges.append(0 if ex['gt_id'] != cur['gt_id'] else 1)
 
-                            box_feats = compute_box_features(ex['box'], cur['box'])
-                            rel_appearance = np.linalg.norm(
-                                cur['vis_feat'] - ex['vis_feat'], ord=2)
-                            box_feats.append(cur['time'] - ex['time'])
-                            box_feats.append(rel_appearance)
-                            edge_features.append(box_feats)
+                        box_feats = compute_box_features(ex['box'], cur['box'])
+                        rel_appearance = np.linalg.norm(
+                            cur['vis_feat'] - ex['vis_feat'], ord=2)
+                        box_feats.append(cur['time'] - ex['time'])
+                        box_feats.append(rel_appearance)
+                        edge_features.append(box_feats)
 
                 existing_nodes.extend(cur_nodes)
 
@@ -123,17 +146,40 @@ if __name__ == '__main__':
 
             edges = torch.tensor(edges)
             gt_edges = torch.tensor(gt_edges)
-            node_timestamps = torch.tensor(node_timestamps)
             edge_features = torch.tensor(edge_features)
             node_features = torch.tensor([node['vis_feat'] for node in all_nodes])
+            node_timestamps = torch.tensor([n['time'] for n in all_nodes])
+            node_boxes = torch.tensor([n['box'] for n in all_nodes])
 
             torch.save(edges, subseq_out / 'edges.pth')
             torch.save(gt_edges, subseq_out / 'gt.pth')
             torch.save(node_timestamps, subseq_out / 'node_timestamps.pth')
             torch.save(edge_features, subseq_out / 'edge_features.pth')
             torch.save(node_features, subseq_out / 'node_features.pth')
+            torch.save(node_boxes, subseq_out / 'node_boxes.pth')
 
-            imgs_out = subseq_out / 'imgs'
-            imgs_out.mkdir()
-            for n in all_nodes:
-                plt.imsave(imgs_out / '{}.png'.format(n['node_id']), n['img'])
+            if save_imgs:
+                imgs_out = subseq_out / 'imgs'
+                imgs_out.mkdir()
+                for n in all_nodes:
+                    imsave(imgs_out / '{:5d}.png'.format(n['node_id']),
+                           (n['img'] * 255.).astype(np.uint8))
+
+
+if __name__ == '__main__':
+    parser = argparse.ArgumentParser()
+    parser.add_argument('--output_dir', type=str, default='./data/reprocessed')
+    parser.add_argument('--pca_path', type=str, default='./data/pca.sklearn')
+    parser.add_argument('--dataset_path', type=str, default='./data/MOT16')
+    parser.add_argument('--mode', type=str, default='train')
+    args = parser.parse_args()
+
+    output_dir = Path(args.output_dir)
+    output_dir.mkdir(exist_ok=False)
+
+    net = ReID().to('cuda')
+    net.eval()
+
+    ds = MOT16(args.dataset_path, args.mode, vis_threshold=10.)
+    pca = pickle.load(open(args.pca_path, 'rb'))
+    preprocess(output_dir, net, ds, pca)

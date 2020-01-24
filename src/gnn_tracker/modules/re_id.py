@@ -600,12 +600,10 @@ def osnet_ibn_x1_0(
 
 
 class ReID(nn.Module):
-    def __init__(self, out_feats=32, *args, **kwargs):
+    def __init__(self):
         super(ReID, self).__init__()
-        self.osnet = osnet_x0_25(num_classes=32, *args, **kwargs)
-        self.down = nn.Linear(512, out_feats)
+        self.osnet = osnet_x0_5()
 
     def forward(self, inp):
         out = self.osnet(inp)
-        out = self.down(out)
         return out

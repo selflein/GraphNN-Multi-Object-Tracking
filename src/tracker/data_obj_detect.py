@@ -185,8 +185,9 @@ class MOT16ObjDetect(torch.utils.data.Dataset):
                 y1 = box[1].item()
                 x2 = box[2].item()
                 y2 = box[3].item()
+                # Changed to be able to read into tracker
                 files[outfile].append(
-                    [frame, -1, x1, y1, x2 - x1, y2 - y1, score.item(), -1, -1, -1])
+                    [frame, -1, x1 + 1, y1+1, x2 - x1+1, y2 - y1+1, 1, 1, score.item()])
 
         for k, v in files.items():
             with open(k, "w") as of:
