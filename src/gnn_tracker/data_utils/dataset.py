@@ -37,9 +37,10 @@ class PreprocessedDataset(Dataset):
         node_features = torch.load(subseq / 'node_features.pth')
         gt = torch.load(subseq / 'gt.pth')
         node_timestamps = torch.load(subseq / 'node_timestamps.pth')
-        imgs = sorted((subseq / 'imgs').iterdir(), key=lambda f: int(f.stem))
 
         if self.load_imgs:
+            imgs = sorted((subseq / 'imgs').iterdir(),
+                          key=lambda f: int(f.stem))
             transform = ToTensor()
             img_list = []
             for img in imgs:

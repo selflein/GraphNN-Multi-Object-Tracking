@@ -161,7 +161,6 @@ class MOT16ObjDetect(torch.utils.data.Dataset):
         """
 
         #format_str = "{}, -1, {}, {}, {}, {}, {}, -1, -1, -1"
-
         files = {}
         for image_id, res in results.items():
             path = self._img_paths[image_id]
@@ -180,14 +179,14 @@ class MOT16ObjDetect(torch.utils.data.Dataset):
             if outfile not in files.keys():
                 files[outfile] = []
 
-            for box, score in zip(res['boxes'], res['scores']):
+            for i, (box, score) in enumerate(zip(res['boxes'], res['scores'])):
                 x1 = box[0].item()
                 y1 = box[1].item()
                 x2 = box[2].item()
                 y2 = box[3].item()
                 # Changed to be able to read into tracker
                 files[outfile].append(
-                    [frame, -1, x1 + 1, y1+1, x2 - x1+1, y2 - y1+1, 1, 1, score.item()])
+                    [frame, i, round(x1 + 1), round(y1+1), round(x2 - x1+1), round(y2 - y1+1), 1, 1, score.item()])
 
         for k, v in files.items():
             with open(k, "w") as of:

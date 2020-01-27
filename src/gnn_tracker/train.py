@@ -19,16 +19,8 @@ from src.gnn_tracker.modules.losses import FocalLoss
 from src.gnn_tracker.data_utils.dataset import PreprocessedDataset
 
 
-sys.excepthook = ultratb.FormattedTB(mode='Verbose',
+sys.excepthook = ultratb.FormattedTB(mode='Context',
                                      color_scheme='Linux', call_pdb=1)
-
-import sys
-
-# from src.data_utils.debug import trace_calls
-# import os
-# os.environ['GPU_DEBUG'] = "0"
-# os.environ['TRACE_INTO'] = 'train'
-# sys.settrace(trace_calls)
 
 # Set seeds for reproducibility
 torch.random.manual_seed(145325)
@@ -74,14 +66,15 @@ class GraphNNMOTracker:
         ds = PreprocessedDataset(Path(self.config.dataset_path),
                                  sequences=self.config.train_sequences)
         train = DataLoader(ds, batch_size=self.config.batch_size,
-                           num_workers=self.config.workers)
+                           num_workers=self.config.workers, shuffle=True)
         return train
 
     def val_dataloader(self):
         ds = PreprocessedDataset(Path(self.config.dataset_path),
                                  sequences=self.config.val_sequences)
         train = DataLoader(ds, batch_size=self.config.batch_size,
-                           num_workers=self.config.workers)
+                           num_workers=self.config.workers,
+                           shuffle=True)
         return train
 
     def train(self):
@@ -110,7 +103,7 @@ class GraphNNMOTracker:
             self.net.train()
             if self.config.train_cnn:
                 self.re_id_net.train()
-            train_metrics = defaultdict(list)
+            metrics = defaultdict(list)
             pbar = tqdm(train_loader)
             for i, data in enumerate(pbar):
                 data = data.to(self.device)
@@ -139,8 +132,8 @@ class GraphNNMOTracker:
                 with torch.no_grad():
                     acc = ((out > 0.5) == gt).float().mean().item()
 
-                train_metrics['train/loss'].append(loss.item())
-                train_metrics['train/acc'].append(acc)
+                metrics['train/loss'].append(loss.item())
+                metrics['train/acc'].append(acc)
                 pbar.set_description(f"Loss: {loss.item():.4f}, Acc: {acc:.2f}")
 
                 opt.zero_grad()
@@ -148,12 +141,12 @@ class GraphNNMOTracker:
                 opt.step()
                 if self.config.train_cnn:
                     opt_re_id.step()
+                    opt_re_id.zero_grad()
 
             with torch.no_grad():
                 self.net.eval()
                 if self.config.train_cnn:
                     self.re_id_net.eval()
-                val_metrics = defaultdict(list)
                 pbar = tqdm(val_loader)
                 for i, data in enumerate(pbar):
                     data = data.to(self.device)
@@ -179,14 +172,13 @@ class GraphNNMOTracker:
                     with torch.no_grad():
                         acc = ((out > 0.5) == gt).float().mean().item()
 
-                    val_metrics['val/loss'].append(loss.item())
-                    val_metrics['val/acc'].append(acc)
+                    metrics['val/loss'].append(loss.item())
+                    metrics['val/acc'].append(acc)
                     pbar.set_description(f"Validation epoch {self.epoch}: "
                                          f"Loss: {loss.item():.4f}, "
                                          f"Acc: {acc:.2f}")
 
-            metrics = {k: np.mean(v)
-                       for k, v in {**train_metrics, **val_metrics}.items()}
+            metrics = {k: np.mean(v) for k, v in metrics.items()}
             self.writer.log(metrics, epoch)
             if epoch % 10 == 0 and epoch > 5:
                 self.save(self.model_save_dir / 'checkpoints_{}.pth'.format(epoch))

@@ -172,6 +172,7 @@ if __name__ == '__main__':
     parser.add_argument('--pca_path', type=str, default='./data/pca.sklearn')
     parser.add_argument('--dataset_path', type=str, default='./data/MOT16')
     parser.add_argument('--mode', type=str, default='train')
+    parser.add_argument('--threshold', type=float, default=.1)
     args = parser.parse_args()
 
     output_dir = Path(args.output_dir)
@@ -180,6 +181,6 @@ if __name__ == '__main__':
     net = ReID().to('cuda')
     net.eval()
 
-    ds = MOT16(args.dataset_path, args.mode, vis_threshold=10.)
+    ds = MOT16(args.dataset_path, args.mode, vis_threshold=args.threshold)
     pca = pickle.load(open(args.pca_path, 'rb'))
     preprocess(output_dir, net, ds, pca)
