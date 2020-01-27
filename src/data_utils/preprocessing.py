@@ -8,9 +8,9 @@ from tqdm import tqdm
 from skimage.io import imsave
 from skimage.transform import resize
 from sklearn.decomposition import PCA
+from torchreid.models.osnet import osnet_x0_5
 
 from src.tracker.data_track import MOT16
-from src.gnn_tracker.modules.re_id import ReID
 
 
 def compute_box_features(box_1, box_2):
@@ -178,7 +178,7 @@ if __name__ == '__main__':
     output_dir = Path(args.output_dir)
     output_dir.mkdir(exist_ok=False)
 
-    net = ReID().to('cuda')
+    net = osnet_x0_5(pretrained=True)
     net.eval()
 
     ds = MOT16(args.dataset_path, args.mode, vis_threshold=args.threshold)

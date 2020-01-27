@@ -1,4 +1,3 @@
-import os
 import argparse
 
 import torch
@@ -11,7 +10,6 @@ from src.tracker.data_obj_detect import MOT16ObjDetect
 
 
 def get_object_detector(model_path: str, device):
-    # object detector
     obj_detect = FRCNN_FPN(num_classes=2, nms_thresh=0.3)
     obj_detect_state_dict = torch.load(model_path,
                                        map_location=lambda storage, loc: storage)
@@ -34,7 +32,11 @@ def get_dataloader(split_path: str = 'data/MOT16/train'):
 
 
 if __name__ == '__main__':
-    parser = argparse.ArgumentParser()
+    parser = argparse.ArgumentParser(
+        description='Run object detection on MOT16 '
+                    'sequences and generate output files for each sequence '
+                    'similar to `gt.txt` files with detections'
+    )
     parser.add_argument('--model_path', type=str)
     parser.add_argument('--dataset_path', type=str, default='data/MOT16/train')
     parser.add_argument('--device', type=str, default='cuda')
