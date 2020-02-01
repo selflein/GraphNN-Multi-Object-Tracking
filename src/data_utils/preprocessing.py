@@ -178,7 +178,7 @@ if __name__ == '__main__':
     output_dir = Path(args.output_dir)
     output_dir.mkdir(exist_ok=False)
 
-    net = osnet_x0_5(pretrained=True)
+    net = osnet_x0_5(pretrained=True).cuda()
     net.eval()
 
     ds = MOT16(args.dataset_path, args.mode, vis_threshold=args.threshold)

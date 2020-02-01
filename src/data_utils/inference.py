@@ -33,6 +33,10 @@ def combine_subsequences(subsequences, net, device: str = 'cuda'):
         (node_timestamps, node_features,
          boxes, edge_features, gt, e) = load_subseq(subseq)
 
+        # Case where no detections in frame
+        if len(node_features) == 0 or len(edge_features) == 0:
+            continue
+
         data = Data(x=node_features,
                     edge_index=e.t(),
                     edge_attr=edge_features,
@@ -42,7 +46,7 @@ def combine_subsequences(subsequences, net, device: str = 'cuda'):
 
         with torch.no_grad():
             # Shape (E,) array with classification score for every edge
-            pred = net(data, node_features.clone().to(device)).cpu().numpy().squeeze()
+            pred = net(data, node_features.clone().to(device)).cpu().numpy()
 
         # Since subsequence uses local time reference starting at 0
         node_timestamps += frame

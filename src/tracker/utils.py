@@ -43,7 +43,7 @@ colors = [
     'tomato', 'turquoise', 'violet', 'wheat', 'white', 'whitesmoke', 'yellow', 'yellowgreen'
 ]
 
-def plot_sequence(tracks, db, first_n_frames=None):
+def plot_sequence(tracks, db, first_n_frames=None, save_folder=None):
     """Plots a whole sequence
 
     Args:
@@ -61,15 +61,15 @@ def plot_sequence(tracks, db, first_n_frames=None):
     loop_cy_iter = cyl()
     styles = defaultdict(lambda: next(loop_cy_iter))
 
+    plt.figure(dpi=500)
     for i, v in enumerate(db):
         img = v['img'].mul(255).permute(1, 2, 0).byte().numpy()
         width, height, _ = img.shape
 
-        dpi = 96
-        fig, ax = plt.subplots(1, dpi=dpi)
-        fig.set_size_inches(width / dpi, height / dpi)
+        fig, ax = plt.subplots(1)
         ax.set_axis_off()
         ax.imshow(img)
+        ax.set_frame_on(False)
 
         for j, t in tracks.items():
             if i in t.keys():
@@ -86,11 +86,14 @@ def plot_sequence(tracks, db, first_n_frames=None):
                 ax.annotate(j, (t_i[0] + (t_i[2] - t_i[0]) / 2.0, t_i[1] + (t_i[3] - t_i[1]) / 2.0),
                             color=styles[j]['ec'], weight='bold', fontsize=6, ha='center', va='center')
 
-        plt.axis('off')
-        # plt.tight_layout()
-        plt.show()
-        # plt.savefig(im_output, dpi=100)
-        # plt.close()
+        # plt.axis('off')
+        # hplt.tight_layout()
+
+        if save_folder:
+            fig.savefig(os.path.join(save_folder, f'{i:04d}.jpg'), dpi=500, bbox_inches='tight')
+            plt.close()
+        else:
+            fig.show()
 
         if first_n_frames is not None and first_n_frames - 1 == i:
             break
@@ -98,7 +101,6 @@ def plot_sequence(tracks, db, first_n_frames=None):
 
 def get_mot_accum(results, seq):
     mot_accum = mm.MOTAccumulator(auto_id=True)
-
     for i, data in enumerate(seq):
         gt = data['gt']
         gt_ids = []
