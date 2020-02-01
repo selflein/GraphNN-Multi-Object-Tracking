@@ -61,15 +61,25 @@ def plot_sequence(tracks, db, first_n_frames=None, save_folder=None):
     loop_cy_iter = cyl()
     styles = defaultdict(lambda: next(loop_cy_iter))
 
-    plt.figure(dpi=500)
     for i, v in enumerate(db):
         img = v['img'].mul(255).permute(1, 2, 0).byte().numpy()
-        width, height, _ = img.shape
+        height, width, _ = img.shape
 
-        fig, ax = plt.subplots(1)
-        ax.set_axis_off()
+        dpi = 160
+
+        # What size does the figure need to be in inches to fit the image?
+        figsize = width / float(dpi), height / float(dpi)
+
+        # Create a figure of the right size with one axes that takes up the full figure
+        fig = plt.figure(figsize=figsize)
+        ax = fig.add_axes([0, 0, 1, 1])
+        ax.set_aspect('equal', adjustable='box')
+
+        # Hide spines, ticks, etc.
+        ax.axis('off')
+
+        # Display the image.
         ax.imshow(img)
-        ax.set_frame_on(False)
 
         for j, t in tracks.items():
             if i in t.keys():
@@ -84,13 +94,10 @@ def plot_sequence(tracks, db, first_n_frames=None, save_folder=None):
                     ))
 
                 ax.annotate(j, (t_i[0] + (t_i[2] - t_i[0]) / 2.0, t_i[1] + (t_i[3] - t_i[1]) / 2.0),
-                            color=styles[j]['ec'], weight='bold', fontsize=6, ha='center', va='center')
-
-        # plt.axis('off')
-        # hplt.tight_layout()
+                            color=styles[j]['ec'], weight='bold', fontsize=10, ha='center', va='center')
 
         if save_folder:
-            fig.savefig(os.path.join(save_folder, f'{i:04d}.jpg'), dpi=500, bbox_inches='tight')
+            fig.savefig(os.path.join(save_folder, f'{i:04d}.png'), dpi=dpi)
             plt.close()
         else:
             fig.show()

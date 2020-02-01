@@ -33,14 +33,19 @@ def get_dataloader(split_path: str = 'data/MOT16/train'):
 
 if __name__ == '__main__':
     parser = argparse.ArgumentParser(
-        description='Run object detection on MOT16 '
-                    'sequences and generate output files for each sequence '
-                    'similar to `gt.txt` files with detections'
+        description='Run object detection on MOT16 sequences and generate '
+                    'output files with detections for each sequence in the '
+                    'same format as the `gt.txt` files of the training '
+                    'sequences'
     )
-    parser.add_argument('--model_path', type=str)
-    parser.add_argument('--dataset_path', type=str, default='data/MOT16/train')
+    parser.add_argument('--model_path', type=str, help='Path to the FasterRCNN '
+                                                       'model')
+    parser.add_argument('--dataset_path', type=str, default='data/MOT16/train',
+                        help='Path to the split of MOT16 to run detection on.')
     parser.add_argument('--device', type=str, default='cuda')
-    parser.add_argument('--out_path', type=str)
+    parser.add_argument('--out_path', type=str,
+                        help='Output directory of the .txt files with '
+                             'detections')
     args = parser.parse_args()
 
     net = get_object_detector(args.model_path, args.device)

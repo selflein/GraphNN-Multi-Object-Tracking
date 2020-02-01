@@ -135,9 +135,13 @@ def get_track_dict(subseqs_dir: Path, net_weight_path: Path,
 
 if __name__ == '__main__':
     parser = argparse.ArgumentParser()
-    parser.add_argument('--preprocessed_dir', type=str)
-    parser.add_argument('--net_weights', type=str)
-    parser.add_argument('--out', type=str)
+    parser.add_argument('--preprocessed_sequence', type=str,
+                        help='Path to the preprocessed sequence (!) folder')
+    parser.add_argument('--net_weights', type=str,
+                        help='Path to the trained GraphNN')
+    parser.add_argument('--out', type=str,
+                        help='Path of the directory where to write output '
+                             'files of the tracks in the MOT16 format')
     args = parser.parse_args()
 
     all_tracks = get_track_dict(Path(args.preprocessed_dir),

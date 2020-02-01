@@ -30,16 +30,24 @@ np.random.seed(435346)
 def get_parser():
     parser = argparse.ArgumentParser()
 
-    parser.add_argument('--name', type=str, required=True)
-    parser.add_argument('--dataset_path', type=str, required=True)
-    parser.add_argument('--log_dir', type=str, default='./logs/')
+    parser.add_argument('--name', type=str, required=True,
+                        help='Name of experiment for logging')
+    parser.add_argument('--dataset_path', type=str, required=True,
+                        help='Directory of preprocessed data')
+    parser.add_argument('--log_dir', type=str, default='./logs/',
+                        help='Directoy where to store checkpoints and logging '
+                             'output')
     parser.add_argument('--base_lr', type=float, default=0.00001)
     parser.add_argument('--cuda', action='store_true')
     parser.add_argument('--workers', type=int, default=4)
     parser.add_argument('--batch_size', type=int, default=8)
     parser.add_argument('--epochs', type=int, default=30)
-    parser.add_argument('--train_cnn', action='store_true')
-    parser.add_argument("--use_focal", action='store_true')
+    parser.add_argument('--train_cnn', action='store_true',
+                        help='Choose to train the CNN providing node embeddings'
+                             ' (currently not working)')
+    parser.add_argument("--use_focal", action='store_true',
+                        help='Use focal loss instead of BCE loss for edge '
+                             'classification')
 
     return parser
 

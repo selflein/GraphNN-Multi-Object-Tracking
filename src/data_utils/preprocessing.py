@@ -168,11 +168,19 @@ def preprocess(out_dir, re_id_net, mot_dataset, pca_transform, save_imgs=False):
 
 if __name__ == '__main__':
     parser = argparse.ArgumentParser()
-    parser.add_argument('--output_dir', type=str, default='./data/reprocessed')
-    parser.add_argument('--pca_path', type=str, default='./data/pca.sklearn')
-    parser.add_argument('--dataset_path', type=str, default='./data/MOT16')
-    parser.add_argument('--mode', type=str, default='train')
-    parser.add_argument('--threshold', type=float, default=.1)
+    parser.add_argument('--output_dir', type=str, default='./data/preprocessed',
+                        help='Outout directory for the preprocessed sequences')
+    parser.add_argument('--pca_path', type=str, default='./data/pca.sklearn',
+                        help='Path to the PCA model for reducing '
+                             'dimensionality of the ReID network')
+    parser.add_argument('--dataset_path', type=str, default='./data/MOT16',
+                        help='Path to the root directory of MOT dataset')
+    parser.add_argument('--mode', type=str, default='train',
+                        help='Use train or test sequences (for test additional '
+                             'work necessary)')
+    parser.add_argument('--threshold', type=float, default=.1,
+                        help='Visibility threshold for detection to be '
+                             'considered a node')
     args = parser.parse_args()
 
     output_dir = Path(args.output_dir)
