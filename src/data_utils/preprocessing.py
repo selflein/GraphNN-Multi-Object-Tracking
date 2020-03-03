@@ -74,7 +74,8 @@ def fit_pca(save_path: str, dataset_path: str, re_id_net):
     pickle.dump(pca_transform, open(save_path, 'wb'))
 
 
-def preprocess(out_dir, re_id_net, mot_dataset, pca_transform, save_imgs=False):
+def preprocess(out_dir, re_id_net, mot_dataset, pca_transform, save_imgs=False,
+               device='cuda'):
     for sequence in mot_dataset:
         tqdm.write('Processing "{}"'.format(str(sequence)))
         seq_out = out_dir / str(sequence)
@@ -108,8 +109,12 @@ def preprocess(out_dir, re_id_net, mot_dataset, pca_transform, save_imgs=False):
                             img = resize(cropped[gt_id].numpy().transpose(1, 2, 0),
                                          (256, 128))
                             feat = re_id_net(
-                                torch.from_numpy(img).permute(2, 0, 1).unsqueeze(
-                                    0).cuda().float()).cpu().numpy()
+                                torch.from_numpy(img)
+                                     .permute(2, 0, 1)
+                                     .unsqueeze(0)
+                                     .to(device)
+                                     .float()
+                            ).cpu().numpy()
                             feat = pca_transform.transform(feat).squeeze()
                         except Exception as e:
                             tqdm.write(
@@ -170,7 +175,7 @@ if __name__ == '__main__':
     parser = argparse.ArgumentParser()
     parser.add_argument('--output_dir', type=str, default='./data/preprocessed',
                         help='Outout directory for the preprocessed sequences')
-    parser.add_argument('--pca_path', type=str, default='./data/pca.sklearn',
+    parser.add_argument('--pca_path', type=str, default='pca.sklearn',
                         help='Path to the PCA model for reducing '
                              'dimensionality of the ReID network')
     parser.add_argument('--dataset_path', type=str, default='./data/MOT16',
@@ -181,14 +186,21 @@ if __name__ == '__main__':
     parser.add_argument('--threshold', type=float, default=.1,
                         help='Visibility threshold for detection to be '
                              'considered a node')
+    parser.add_argument('--save_imgs', action='store_true',
+                        help='Save image crops according to bounding boxes for '
+                             'training the CNN (only required if this is '
+                             'wanted)')
+    parser.add_argument('--device', type=str, default='cuda',
+                        choices=['cuda', 'cpu'], help='Device to run the '
+                                                      'preprocessing on.')
     args = parser.parse_args()
 
     output_dir = Path(args.output_dir)
     output_dir.mkdir(exist_ok=False)
 
-    net = osnet_x0_5(pretrained=True).cuda()
+    net = osnet_x0_5(pretrained=True).to(args.device)
     net.eval()
 
     ds = MOT16(args.dataset_path, args.mode, vis_threshold=args.threshold)
     pca = pickle.load(open(args.pca_path, 'rb'))
-    preprocess(output_dir, net, ds, pca)
+    preprocess(output_dir, net, ds, pca, args.save_imgs, device=args.device)

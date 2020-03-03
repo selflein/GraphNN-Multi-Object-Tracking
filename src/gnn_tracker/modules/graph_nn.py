@@ -1,23 +1,7 @@
 import torch
 from torch import nn
-from torchvision.models import vgg16_bn
 
-from src.gnn_tracker.modules.spp import SpatialPyramidPool
 from src.gnn_tracker.modules.message_passing import TimeDependent
-
-
-class AppearanceEncoder(nn.Module):
-    def __init__(self, levels):
-        super().__init__()
-        self.feats = vgg16_bn(pretrained=True).features[:14]
-        print(self.feats)
-        self.pool = SpatialPyramidPool(levels)
-
-    def forward(self, inp):
-        b, c, h, w = inp.shape
-        out = self.feats(inp)
-        out = self.pool(out)
-        return out
 
 
 class Net(torch.nn.Module):

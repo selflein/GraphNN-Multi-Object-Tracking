@@ -35,7 +35,7 @@ def get_parser():
     parser.add_argument('--dataset_path', type=str, required=True,
                         help='Directory of preprocessed data')
     parser.add_argument('--log_dir', type=str, default='./logs/',
-                        help='Directoy where to store checkpoints and logging '
+                        help='Directory where to store checkpoints and logging '
                              'output')
     parser.add_argument('--base_lr', type=float, default=0.00001)
     parser.add_argument('--cuda', action='store_true')
@@ -43,8 +43,8 @@ def get_parser():
     parser.add_argument('--batch_size', type=int, default=8)
     parser.add_argument('--epochs', type=int, default=30)
     parser.add_argument('--train_cnn', action='store_true',
-                        help='Choose to train the CNN providing node embeddings'
-                             ' (currently not working)')
+                        help='Choose to train the CNN providing node '
+                             'embeddings')
     parser.add_argument("--use_focal", action='store_true',
                         help='Use focal loss instead of BCE loss for edge '
                              'classification')
@@ -72,14 +72,16 @@ class GraphNNMOTracker:
 
     def train_dataloader(self):
         ds = PreprocessedDataset(Path(self.config.dataset_path),
-                                 sequences=self.config.train_sequences)
+                                 sequences=self.config.train_sequences,
+                                 load_imgs=self.config.train_cnn)
         train = DataLoader(ds, batch_size=self.config.batch_size,
                            num_workers=self.config.workers, shuffle=True)
         return train
 
     def val_dataloader(self):
         ds = PreprocessedDataset(Path(self.config.dataset_path),
-                                 sequences=self.config.val_sequences)
+                                 sequences=self.config.val_sequences,
+                                 load_imgs=self.config.train_cnn)
         train = DataLoader(ds, batch_size=self.config.batch_size,
                            num_workers=self.config.workers,
                            shuffle=True)
@@ -114,9 +116,6 @@ class GraphNNMOTracker:
             metrics = defaultdict(list)
             pbar = tqdm(train_loader)
             for i, data in enumerate(pbar):
-                data = data.to(self.device)
-                gt = data.y.float()
-
                 if self.config.train_cnn:
                     img_tensor = data.imgs
                     img_ds = TensorDataset(img_tensor)
@@ -125,6 +124,7 @@ class GraphNNMOTracker:
                     x_feats = []
                     for imgs in img_dl:
                         if len(imgs) == 1:
+                            # Batchnorm with size 1 batch fails
                             self.re_id_net.eval()
                         x_feats.append(self.re_id_net(imgs[0].to(self.device)))
                         self.re_id_net.train()
@@ -133,6 +133,8 @@ class GraphNNMOTracker:
                     data.x = x_feats
                     del data.imgs
 
+                data = data.to(self.device)
+                gt = data.y.float()
                 initial_x = data.x.clone()
                 out = self.net(data, initial_x).squeeze(1)
                 loss = criterion(out, gt)

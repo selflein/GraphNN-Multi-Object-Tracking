@@ -26,7 +26,8 @@ split into subsets with one overlapping frame each.
 ``` 
 usage: preprocessing.py [-h] [--output_dir OUTPUT_DIR] [--pca_path PCA_PATH]
                         [--dataset_path DATASET_PATH] [--mode MODE]
-                        [--threshold THRESHOLD]
+                        [--threshold THRESHOLD] [--save_imgs]
+                        [--device {cuda,cpu}]
 
 optional arguments:
   -h, --help            show this help message and exit
@@ -41,7 +42,9 @@ optional arguments:
   --threshold THRESHOLD
                         Visibility threshold for detection to be considered a
                         node
-
+  --save_imgs           Save image crops according to bounding boxes for
+                        training the CNN (only required if this is wanted)
+  --device {cuda,cpu}   Device to run the preprocessing on.
 ```
 `PCA_PATH` is a serialized Scikit-Learn PCA model which can be fit using the `fit_pca(...)` function in 
 `src/data_utils/preprocessing.py`. `MODE` should be set to `train`.
@@ -64,7 +67,7 @@ optional arguments:
   --workers WORKERS
   --batch_size BATCH_SIZE
   --epochs EPOCHS
-  --train_cnn           Choose to train the CNN providing node embeddings (currently not working)
+  --train_cnn           Choose to train the CNN providing node embeddings
   --use_focal           Use focal loss instead of BCE loss for edge classification
 ```
 
