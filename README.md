@@ -4,7 +4,8 @@
   <img src="anim.gif" width="500">
 </p>
 
-This repository largely implements the approach described in [Learning a Neural Solver for Multiple Object Tracking](https://arxiv.org/abs/1912.07515).
+This repository largely implements the approach described in [Learning a Neural Solver for Multiple Object Tracking](https://arxiv.org/abs/1912.07515). This implementation achieves ~58% MOTA on the MOT16 test set using PCA to reduce the dimensionality of the visual features. Note that the paper learns the network providing the ReID embeddings in an end-to-end way which is also supported in this implementation but was not trained fully by myself due to hardware limitations.
+
 ### Setup
 Install the conda environment
 ```
