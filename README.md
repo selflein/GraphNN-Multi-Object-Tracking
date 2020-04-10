@@ -48,7 +48,7 @@ optional arguments:
   --device {cuda,cpu}   Device to run the preprocessing on.
 ```
 `PCA_PATH` is a serialized Scikit-Learn PCA model which can be fit using the `fit_pca(...)` function in 
-`src/data_utils/preprocessing.py`. `MODE` should be set to `train`.
+`src/data_utils/preprocessing.py`. Already fit PCA model can be downloaded [here](https://drive.google.com/file/d/1gXDdgKgbkgqpWnYbQ1nBkNGckJZBxi_k/view?usp=sharing). `MODE` should be set to `train`.
 
 #### Training script
 Training accepts the preprocessed version of the dataset only.
@@ -74,7 +74,7 @@ optional arguments:
 
 ### Testing
 #### Obtain detections
-Run `src/data_utils/run_obj_detect.py` to use a pre-trained FasterRCNN for detection on the sequences.
+Run `src/data_utils/run_obj_detect.py` to use a pre-trained FasterRCNN for detection on the sequences. The FasterRCNN model weights can be downloaded [here](https://drive.google.com/file/d/12FlTPh5gjPqvY2u0N5Wxn089Hb1gFUb5/view?usp=sharing).
 ```
 usage: run_obj_detect.py [-h] [--model_path MODEL_PATH]
                          [--dataset_path DATASET_PATH] [--device DEVICE]
@@ -101,8 +101,7 @@ In this way, we can just use the same pre-processing script from the training sc
 See Train section. Use with `--mode test` to use the test folder of the MOT16 dataset.
 
 #### Inference
-Run `src/data_utils/inference.py` to obtain tracks as `.txt.` file from a single (!), preprocessed sequence. This means this script has
-to be executed for each test sequence independently.
+Run `src/data_utils/inference.py` to obtain tracks as `.txt.` file from a single (!), preprocessed sequence. This means this script has to be executed for each test sequence independently. Pretrained model weights can be downloaded from [here](https://drive.google.com/file/d/1Ocy1ugsnIgCdb-DnKSuyI2127VTvlTq_/view?usp=sharing).
 ```
 usage: inference.py [-h] [--preprocessed_sequence PREPROCESSED_SEQUENCE]
                     [--net_weights NET_WEIGHTS] [--out OUT]
