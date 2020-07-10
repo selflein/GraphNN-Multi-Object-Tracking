@@ -1,6 +1,7 @@
 import csv
 import argparse
 from pathlib import Path
+from statistics import mean
 from collections import defaultdict
 
 import torch
@@ -25,7 +26,7 @@ def combine_subsequences(subsequences, net, device: str = 'cuda'):
     and combines them into one big consistent graph where overlapping edge
     classifications are averaged.
     """
-    edge_scores = defaultdict(float)
+    edge_scores = defaultdict(list)
     t_box_to_global_id = {}
 
     global_id = 0
@@ -67,9 +68,11 @@ def combine_subsequences(subsequences, net, device: str = 'cuda'):
             box_j = boxes[j_edge].numpy().tolist()
             global_j = t_box_to_global_id[(t_j, *box_j)]
 
-            # Combine predictions for same edge by averaging predictions
-            edge_scores[(global_i, global_j)] = \
-                (edge_scores[(global_i, global_j)] + pred[edge_id]) / 2.
+            # Store edge predictions for each edge
+            edge_scores[(global_i, global_j)].append(pred[edge_id])
+
+    # Average predictions of each edge
+    edge_scores = {edge: mean(scores) for edge, scores in edge_scores.items()}
 
     pred_edges = [edge for edge, score in edge_scores.items() if score > 0.4]
     global_id_to_t_box = {v: k for k, v in t_box_to_global_id.items()}
@@ -144,7 +147,7 @@ if __name__ == '__main__':
                              'files of the tracks in the MOT16 format')
     args = parser.parse_args()
 
-    all_tracks = get_track_dict(Path(args.preprocessed_dir),
+    all_tracks = get_track_dict(Path(args.preprocessed_sequence),
                                 Path(args.net_weights))
 
     write_tracks_to_csv(all_tracks, Path(args.out))
