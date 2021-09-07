@@ -69,7 +69,7 @@ def combine_subsequences(subsequences, net, device: str = 'cuda'):
             global_j = t_box_to_global_id[(t_j, *box_j)]
 
             # Store edge predictions for each edge
-            edge_scores[(global_i, global_j)].append(pred[edge_id])
+            edge_scores[(global_i, global_j)].append(pred[edge_id].item())
 
     # Average predictions of each edge
     edge_scores = {edge: mean(scores) for edge, scores in edge_scores.items()}
@@ -118,7 +118,7 @@ def get_track_dict(subseqs_dir: Path, net_weight_path: Path,
     subseqs = sorted(subseqs_dir.iterdir(), key=lambda f: int(f.stem.split('_')[1]))
 
     edge_classifier = Net().to(device).eval()
-    edge_classifier.load_state_dict(torch.load(net_weight_path))
+    edge_classifier.load_state_dict(torch.load(net_weight_path, map_location=torch.device(device)))
 
     id_to_t_box, final_edges = combine_subsequences(subseqs,
                                                     edge_classifier,
