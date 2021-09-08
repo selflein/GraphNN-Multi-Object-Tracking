@@ -1,10 +1,13 @@
-data/
 .DS_Store
 .idea
 models/
 output/
 notebooks/.ipynb_checkpoints
 .vscode
+out_track
+data
+logs
+predictions
 
 # Byte-compiled / optimized / DLL files
 __pycache__/

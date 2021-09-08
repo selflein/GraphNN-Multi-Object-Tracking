@@ -7,7 +7,6 @@ import numpy as np
 from tqdm import tqdm
 from skimage.io import imsave
 from skimage.transform import resize
-from sklearn.decomposition import PCA
 from torchreid.models.osnet import osnet_x0_5
 
 from src.tracker.data_track import MOT16
@@ -46,36 +45,7 @@ def get_top_k_nodes(cur_node, existing_nodes, k=50):
         return sorted_nodes
 
 
-def fit_pca(save_path: str, dataset_path: str, re_id_net):
-    dataset = MOT16(dataset_path, 'train')
-
-    instances = []
-    for sequence in dataset:
-
-        for i in tqdm(range(0, len(sequence), 50)):
-            item = sequence[i]
-            gt = item['gt']
-            cropped = item['cropped_imgs']
-
-            for gt_id, box in gt.items():
-                with torch.no_grad():
-                    try:
-                        img = resize(cropped[gt_id].numpy().transpose(1, 2, 0),
-                                     (256, 128))
-                        feat = re_id_net(torch.from_numpy(img).permute(2, 0, 1).unsqueeze(
-                            0).cuda().float()).cpu().squeeze().numpy()
-                        instances.append(feat)
-                    except Exception as e:
-                        tqdm.write('Error when processing image: {}'.format(str(e)))
-                        continue
-    print(f'Number of instances: {len(instances)}')
-    pca_transform = PCA(n_components=32)
-    pca_transform.fit(np.stack(instances))
-    pickle.dump(pca_transform, open(save_path, 'wb'))
-
-
-def preprocess(out_dir, re_id_net, mot_dataset, pca_transform, save_imgs=False,
-               device='cuda'):
+def preprocess(out_dir, re_id_net, mot_dataset, save_imgs=False, device='cuda'):
     for sequence in mot_dataset:
         tqdm.write('Processing "{}"'.format(str(sequence)))
         seq_out = out_dir / str(sequence)
@@ -114,8 +84,7 @@ def preprocess(out_dir, re_id_net, mot_dataset, pca_transform, save_imgs=False,
                                      .unsqueeze(0)
                                      .to(device)
                                      .float()
-                            ).cpu().numpy()
-                            feat = pca_transform.transform(feat).squeeze()
+                            ).cpu().numpy().squeeze()
                         except Exception as e:
                             tqdm.write(
                                 'Error when processing image: {}'.format(str(e)))
@@ -175,9 +144,6 @@ if __name__ == '__main__':
     parser = argparse.ArgumentParser()
     parser.add_argument('--output_dir', type=str, default='./data/preprocessed',
                         help='Outout directory for the preprocessed sequences')
-    parser.add_argument('--pca_path', type=str, default='pca.sklearn',
-                        help='Path to the PCA model for reducing '
-                             'dimensionality of the ReID network')
     parser.add_argument('--dataset_path', type=str, default='./data/MOT16',
                         help='Path to the root directory of MOT dataset')
     parser.add_argument('--mode', type=str, default='train',
@@ -202,5 +168,4 @@ if __name__ == '__main__':
     net.eval()
 
     ds = MOT16(args.dataset_path, args.mode, vis_threshold=args.threshold)
-    pca = pickle.load(open(args.pca_path, 'rb'))
-    preprocess(output_dir, net, ds, pca, args.save_imgs, device=args.device)
+    preprocess(output_dir, net, ds, args.save_imgs, device=args.device)

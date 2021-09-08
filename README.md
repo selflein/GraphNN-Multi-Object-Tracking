@@ -4,7 +4,7 @@
   <img src="anim.gif" width="500">
 </p>
 
-This repository largely implements the approach described in [Learning a Neural Solver for Multiple Object Tracking](https://arxiv.org/abs/1912.07515). This implementation achieves ~58% MOTA on the MOT16 test set using PCA to reduce the dimensionality of the visual features. Note that the paper uses a learnable MLP to reduce the dimensionality of the visual features instead.
+This repository largely implements the approach described in [Learning a Neural Solver for Multiple Object Tracking](https://arxiv.org/abs/1912.07515). This implementation achieves ~58% MOTA on the MOT16 test set.
 
 Note that this is **not** the official implementation of the paper which will be published [here](https://github.com/dvl-tum/mot_neural_solver).
 
@@ -27,7 +27,7 @@ The implementation supports the [MOT16](https://motchallenge.net/data/MOT16/) da
 Run `python src/data_utils/preprocessing.py` which creates and saves a graph representation for the scene. In detail, the sequences are 
 split into subsets with one overlapping frame each.
 ``` 
-usage: preprocessing.py [-h] [--output_dir OUTPUT_DIR] [--pca_path PCA_PATH]
+usage: preprocessing.py [-h] [--output_dir OUTPUT_DIR]
                         [--dataset_path DATASET_PATH] [--mode MODE]
                         [--threshold THRESHOLD] [--save_imgs]
                         [--device {cuda,cpu}]
@@ -36,8 +36,6 @@ optional arguments:
   -h, --help            show this help message and exit
   --output_dir OUTPUT_DIR
                         Outout directory for the preprocessed sequences
-  --pca_path PCA_PATH   Path to the PCA model for reducing dimensionality of
-                        the ReID network
   --dataset_path DATASET_PATH
                         Path to the root directory of MOT dataset
   --mode MODE           Use train or test sequences (for test additional work
@@ -49,8 +47,7 @@ optional arguments:
                         training the CNN (only required if this is wanted)
   --device {cuda,cpu}   Device to run the preprocessing on.
 ```
-`PCA_PATH` is a serialized Scikit-Learn PCA model which can be fit using the `fit_pca(...)` function in 
-`src/data_utils/preprocessing.py`. Already fit PCA model can be downloaded [here](https://drive.google.com/file/d/1gXDdgKgbkgqpWnYbQ1nBkNGckJZBxi_k/view?usp=sharing). `MODE` should be set to `train`.
+`MODE` should be set to `train`.
 
 #### Training script
 Training accepts the preprocessed version of the dataset only.
@@ -75,7 +72,7 @@ optional arguments:
 ```
 
 ### Testing
-#### Obtain detections
+### Obtain detections
 Run `src/data_utils/run_obj_detect.py` to use a pre-trained FasterRCNN for detection on the sequences. The FasterRCNN model weights can be downloaded [here](https://drive.google.com/file/d/12FlTPh5gjPqvY2u0N5Wxn089Hb1gFUb5/view?usp=sharing).
 ```
 usage: run_obj_detect.py [-h] [--model_path MODEL_PATH]

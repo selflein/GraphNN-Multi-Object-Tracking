@@ -1,4 +1,3 @@
-import torch
 import torch.nn.functional as F
 
 from torchvision.models.detection import FasterRCNN

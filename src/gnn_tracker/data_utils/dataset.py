@@ -62,7 +62,7 @@ class PreprocessedDataset(Dataset):
                         node_timestamps=node_timestamps)
         return data
 
-    def __len__(self):
+    def len(self):
         return len(self.subsequences)
 
 

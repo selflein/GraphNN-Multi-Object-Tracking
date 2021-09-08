@@ -1,3 +1,4 @@
+from os import O_SYNC
 import sys
 import math
 import argparse
@@ -11,9 +12,9 @@ from IPython.core import ultratb
 from torch.utils.data import DataLoader
 from test_tube import Experiment
 from torch_geometric.data import DataLoader
+from torchreid.models.osnet import osnet_x0_5
 from torch.utils.data import DataLoader as RegLoader, TensorDataset
 
-from src.gnn_tracker.modules.re_id import ReID
 from src.gnn_tracker.modules.graph_nn import Net
 from src.gnn_tracker.modules.losses import FocalLoss
 from src.gnn_tracker.data_utils.dataset import PreprocessedDataset
@@ -21,10 +22,6 @@ from src.gnn_tracker.data_utils.dataset import PreprocessedDataset
 
 sys.excepthook = ultratb.FormattedTB(mode='Context',
                                      color_scheme='Linux', call_pdb=1)
-
-# Set seeds for reproducibility
-torch.random.manual_seed(145325)
-np.random.seed(435346)
 
 
 def get_parser():
@@ -37,11 +34,12 @@ def get_parser():
     parser.add_argument('--log_dir', type=str, default='./logs/',
                         help='Directory where to store checkpoints and logging '
                              'output')
-    parser.add_argument('--base_lr', type=float, default=0.00001)
+    parser.add_argument('--base_lr', type=float, default=3e-4)
     parser.add_argument('--cuda', action='store_true')
     parser.add_argument('--workers', type=int, default=4)
     parser.add_argument('--batch_size', type=int, default=8)
     parser.add_argument('--epochs', type=int, default=30)
+    parser.add_argument('--seed', type=int, default=25151)
     parser.add_argument('--train_cnn', action='store_true',
                         help='Choose to train the CNN providing node '
                              'embeddings')
@@ -61,7 +59,7 @@ class GraphNNMOTracker:
 
         self.net = Net().to(self.device)
         if self.config.train_cnn:
-            self.re_id_net = ReID(out_feats=32, pretrained=True).to(self.device)
+            self.re_id_net = osnet_x0_5(pretrained=True)
 
         log_dir = Path(
             self.writer.get_data_path(self.writer.name, self.writer.version))
@@ -93,7 +91,7 @@ class GraphNNMOTracker:
 
         # setup optimizer
         opt = torch.optim.Adam(self.net.parameters(),
-                               lr=3e-4,
+                               lr=self.config.base_lr,
                                weight_decay=1e-4,
                                betas=(0.9, 0.999))
 
@@ -210,6 +208,10 @@ if __name__ == '__main__':
     args = get_parser().parse_args()
     args.train_sequences = sequences[:6]
     args.val_sequences = sequences[6:]
+
+    # Set seeds for reproducibility
+    torch.random.manual_seed(args.seed)
+    np.random.seed(args.seed)
 
     output_dir = Path(args.log_dir)
     output_dir.mkdir(exist_ok=True, parents=True)
