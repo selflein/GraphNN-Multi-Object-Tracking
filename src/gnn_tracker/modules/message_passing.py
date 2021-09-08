@@ -80,15 +80,16 @@ class TimeDependent(MessagePassing):
         past_msg_feats = torch.cat([x_j, updated_edge_attr, initial_x_j], dim=1)
         past_msgs = self.create_past_msgs(past_msg_feats)
 
-        return past_msgs, future_msgs, updated_edge_attr
+        return past_msgs, future_msgs, edge_update_features
 
-    def update(self, messages):
+    def update(self, inputs):
+        messages, edge_attr = inputs
         # Create new node embeddings based on Equation 9.
         updated_nodes = self.combine_future_past(messages)
-        return updated_nodes
+        return updated_nodes, edge_attr
 
     def aggregate(self, inputs, edge_index, dim_size):
-        past_msgs, future_msgs = inputs
+        past_msgs, future_msgs, edge_attr = inputs
 
         rows, cols = edge_index
         # Edge direction goes in direction of time
@@ -100,4 +101,4 @@ class TimeDependent(MessagePassing):
 
         # Concatenate messages (see Equation 9)
         messages = torch.cat([messages_past, messages_future], dim=1)
-        return messages
+        return messages, edge_attr

@@ -10,7 +10,7 @@ class Net(torch.nn.Module):
             num_steps=12, 
             inp_edge_dim=6,
             edge_dim=64, 
-            inp_node_dim=512,
+            inp_node_dim=32,
             node_dim=32
         ):
         super(Net, self).__init__()
@@ -48,8 +48,8 @@ class Net(torch.nn.Module):
 
         edge_attr = self.edge_encoder(edge_attr)
         x = self.node_encoder(x)
-
         for _ in range(self.num_steps):
+            import pdb; pdb.set_trace()
             x, edge_attr = self.td1(x, edge_index, edge_attr, node_timestamps, initial_x)
 
         return self.edge_classifier(edge_attr)
