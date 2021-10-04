@@ -120,7 +120,7 @@ def preprocess(out_dir, re_id_net, mot_dataset, save_imgs=False, device='cuda'):
 
             edges = torch.tensor(edges)
             gt_edges = torch.tensor(gt_edges)
-            edge_features = torch.tensor(edge_features)
+            edge_features = torch.tensor(edge_features).float()
             node_features = torch.tensor([node['vis_feat'] for node in all_nodes])
             node_timestamps = torch.tensor([n['time'] for n in all_nodes])
             node_boxes = torch.tensor([n['box'] for n in all_nodes])

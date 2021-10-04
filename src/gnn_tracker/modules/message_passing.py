@@ -80,7 +80,7 @@ class TimeDependent(MessagePassing):
         past_msg_feats = torch.cat([x_j, updated_edge_attr, initial_x_j], dim=1)
         past_msgs = self.create_past_msgs(past_msg_feats)
 
-        return past_msgs, future_msgs, edge_update_features
+        return past_msgs, future_msgs, updated_edge_attr
 
     def update(self, inputs):
         messages, edge_attr = inputs

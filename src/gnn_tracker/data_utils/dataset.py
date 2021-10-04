@@ -32,7 +32,7 @@ class PreprocessedDataset(Dataset):
 
     def get(self, item):
         subseq = self.subsequences[item]
-        edge_features = torch.load(subseq / 'edge_features.pth')
+        edge_features = torch.load(subseq / 'edge_features.pth').float()
         edges = torch.load(subseq / 'edges.pth').long()
         node_features = torch.load(subseq / 'node_features.pth')
         gt = torch.load(subseq / 'gt.pth')
