@@ -100,15 +100,15 @@ In this way, we can just use the same pre-processing script from the training sc
 See Train section. Use with `--mode test` to use the test folder of the MOT16 dataset.
 
 #### Inference
-Run `src/data_utils/inference.py` to obtain tracks as `.txt.` file from a single (!), preprocessed sequence. This means this script has to be executed for each test sequence independently. Pretrained model weights can be downloaded from [here](https://drive.google.com/file/d/1Ocy1ugsnIgCdb-DnKSuyI2127VTvlTq_/view?usp=sharing).
+Run `src/data_utils/inference.py` to obtain tracks as `.txt` file for preprocessed sequences. Pretrained model weights can be downloaded from [here](https://drive.google.com/file/d/1Ocy1ugsnIgCdb-DnKSuyI2127VTvlTq_/view?usp=sharing).
 ```
-usage: inference.py [-h] [--preprocessed_sequence PREPROCESSED_SEQUENCE]
+usage: inference.py [-h] [--preprocessed_sequences PREPROCESSED_SEQUENCE_1 ...]
                     [--net_weights NET_WEIGHTS] [--out OUT]
 
 optional arguments:
   -h, --help            show this help message and exit
-  --preprocessed_sequence PREPROCESSED_SEQUENCE
-                        Path to the preprocessed sequence (!) folder
+  --preprocessed_sequences PREPROCESSED_SEQUENCE
+                        Path to the preprocessed sequence (!) folders
   --net_weights NET_WEIGHTS
                         Path to the trained GraphNN
   --out OUT             Path of the directory where to write output files of

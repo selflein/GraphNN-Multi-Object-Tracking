@@ -138,16 +138,18 @@ def get_track_dict(subseqs_dir: Path, net_weight_path: Path,
 
 if __name__ == '__main__':
     parser = argparse.ArgumentParser()
-    parser.add_argument('--preprocessed_sequence', type=str,
-                        help='Path to the preprocessed sequence (!) folder')
+    parser.add_argument('--preprocessed_sequences', type=str, nargs='+',
+                        help='Path(s) to the preprocessed sequence (!) folder')
     parser.add_argument('--net_weights', type=str,
                         help='Path to the trained GraphNN')
     parser.add_argument('--out', type=str,
                         help='Path of the directory where to write output '
                              'files of the tracks in the MOT16 format')
+    parser.add_argument("--device", default="cuda")
     args = parser.parse_args()
 
-    all_tracks = get_track_dict(Path(args.preprocessed_sequence),
-                                Path(args.net_weights))
+    for sequence_folder in args.preprocessed_sequences:
+        seq_folder = Path(sequence_folder)
+        all_tracks = get_track_dict(seq_folder, Path(args.net_weights), args.device)
 
-    write_tracks_to_csv(all_tracks, Path(args.out))
+        write_tracks_to_csv(all_tracks, Path(args.out) / f'{seq_folder.name}.txt')
