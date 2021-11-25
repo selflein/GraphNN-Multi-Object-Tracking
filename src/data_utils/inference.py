@@ -12,7 +12,7 @@ from src.gnn_tracker.modules.graph_nn import Net
 
 
 def load_subseq(subseq):
-    edge_feats = torch.load(subseq / 'edge_features.pth')
+    edge_feats = torch.load(subseq / 'edge_features.pth').float()
     e = torch.load(subseq / 'edges.pth').long()
     node_feats = torch.load(subseq / 'node_features.pth')
     gt_edges = torch.load(subseq / 'gt.pth')
