@@ -3,6 +3,7 @@ import argparse
 from pathlib import Path
 from statistics import mean
 from collections import defaultdict
+from typing import Dict, Tuple, List
 
 import torch
 from tqdm import tqdm
@@ -21,7 +22,8 @@ def load_subseq(subseq):
     return node_ts, node_feats, node_boxes, edge_feats, gt_edges, e
 
 
-def combine_subsequences(subsequences, net, device: str = 'cuda'):
+def combine_subsequences(subsequences, net, device: str = 'cuda',
+                         threshold: float = 0.5):
     """Takes the overlapping (with one frame each!) subsequences of an sequence
     and combines them into one big consistent graph where overlapping edge
     classifications are averaged.
@@ -72,31 +74,75 @@ def combine_subsequences(subsequences, net, device: str = 'cuda'):
             edge_scores[(global_i, global_j)].append(pred[edge_id].item())
 
     # Average predictions of each edge
-    edge_scores = {edge: mean(scores) for edge, scores in edge_scores.items()}
+    edge_scores = {edge: mean(scores) for edge, scores in edge_scores.items() if mean(scores) > threshold}
 
-    pred_edges = [edge for edge, score in edge_scores.items() if score > 0.4]
     global_id_to_t_box = {v: k for k, v in t_box_to_global_id.items()}
-    return global_id_to_t_box, pred_edges
+    return global_id_to_t_box, edge_scores
 
 
-def get_tracks(e):
-    edge_to_next = defaultdict(list)
-    for i, j in e:
-        edge_to_next[i].append(j)
+def get_tracks(edge_scores: Dict[Tuple[int, int], float]) -> List[List[int]]:
+    """Implements the greedy rounding scheme described in Section B.1. in order
+    to obtain a graph satisfying the flow constraints. 
 
-    def traverse(neighbors, rem_nodes, track):
-        for neighbor in neighbors:
-            if neighbor in rem_nodes:
-                track.append(neighbor)
-                rem_nodes.remove(neighbor)
-                traverse(edge_to_next[neighbor], rem_nodes, track)
-                break
-        return track
+    Args:
+        edge_scores: Dictionary containing the edges (as tuples (i, j)) as keys
+            and assigned probability as value.
 
+    Returns:
+        List of tracks consisting of node IDs.
+    """
+    out_edges = defaultdict(list)
+    in_edges = defaultdict(list)
+    for (i, j), score in edge_scores.items():
+        out_edges[i].append((j, score))
+        in_edges[j].append((i, score))
+    
+    greedy_edges = set()
+    max_node_id = max(out_edges.keys() | in_edges.keys())
+    edges_to_remove = set()
+    for node_id in range(max_node_id + 1):
+        # Only consider outgoing edges with maximum score satisfying condition 1
+        if node_id in out_edges:
+            out_edge = max(out_edges[node_id], key=lambda e: e[1])[0]
+            greedy_edges.add((node_id, out_edge))
+
+            for (rem, _) in out_edges[node_id]:
+                if rem != out_edge and (node_id, rem) in greedy_edges:
+                    edges_to_remove.add((node_id, rem))
+
+        # Only consider incoming edges with maximum score satisfying condition 2
+        if node_id in in_edges and len(in_edges[node_id]) > 1:
+            in_edge = max(in_edges[node_id], key=lambda e: e[1])[0]
+            greedy_edges.add((in_edge, node_id))
+
+            for (rem, _) in in_edges[node_id]:
+                if rem != in_edge and (rem, node_id) in greedy_edges:
+                    edges_to_remove.add((rem, node_id))
+
+    greedy_edges -= edges_to_remove
+    edge_to_next = {}
+    for (i, j) in greedy_edges:
+        if i in greedy_edges:
+            raise ValueError("Greedy rounding did not realize a graph "
+                             "satisfying flow constraints.")
+        edge_to_next[i] = j
+
+    # Convert edge transitions to tracks of nodes
+    visited_nodes = set()
     all_tracks = []
-    remaining_nodes = list(edge_to_next.keys())
-    while remaining_nodes:
-        all_tracks.append(traverse([remaining_nodes[0]], remaining_nodes, []))
+    for node_id in range(max_node_id + 1):
+        if node_id in visited_nodes:
+            continue
+
+        visited_nodes.add(node_id)
+        track = [node_id]
+        cur_node_id = node_id
+        while cur_node_id in edge_to_next:
+            next_node_id = edge_to_next[cur_node_id]
+            track.append(next_node_id)
+            visited_nodes.add(next_node_id)
+            cur_node_id = next_node_id
+        all_tracks.append(track)
     return all_tracks
 
 
@@ -120,10 +166,10 @@ def get_track_dict(subseqs_dir: Path, net_weight_path: Path,
     edge_classifier = Net().to(device).eval()
     edge_classifier.load_state_dict(torch.load(net_weight_path, map_location=torch.device(device)))
 
-    id_to_t_box, final_edges = combine_subsequences(subseqs,
+    id_to_t_box, edge_scores = combine_subsequences(subseqs,
                                                     edge_classifier,
                                                     device)
-    tracks = get_tracks(final_edges)
+    tracks = get_tracks(edge_scores)
 
     track_dict = defaultdict(dict)
     for track_id, track in enumerate(tracks):
