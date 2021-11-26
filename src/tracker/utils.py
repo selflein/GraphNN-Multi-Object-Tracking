@@ -19,29 +19,156 @@ from torchvision.transforms import functional as F
 from tqdm.auto import tqdm
 
 colors = [
-    'aliceblue', 'antiquewhite', 'aqua', 'aquamarine', 'azure', 'beige', 'bisque',
-    'black', 'blanchedalmond', 'blue', 'blueviolet', 'brown', 'burlywood', 'cadetblue',
-    'chartreuse', 'chocolate', 'coral', 'cornflowerblue', 'cornsilk', 'crimson', 'cyan',
-    'darkblue', 'darkcyan', 'darkgoldenrod', 'darkgray', 'darkgreen', 'darkgrey', 'darkkhaki',
-    'darkmagenta', 'darkolivegreen', 'darkorange', 'darkorchid', 'darkred', 'darksalmon',
-    'darkseagreen', 'darkslateblue', 'darkslategray', 'darkslategrey', 'darkturquoise',
-    'darkviolet', 'deeppink', 'deepskyblue', 'dimgray', 'dimgrey', 'dodgerblue', 'firebrick',
-    'floralwhite', 'forestgreen', 'fuchsia', 'gainsboro', 'ghostwhite', 'gold', 'goldenrod',
-    'gray', 'green', 'greenyellow', 'grey', 'honeydew', 'hotpink', 'indianred', 'indigo',
-    'ivory', 'khaki', 'lavender', 'lavenderblush', 'lawngreen', 'lemonchiffon', 'lightblue',
-    'lightcoral', 'lightcyan', 'lightgoldenrodyellow', 'lightgray', 'lightgreen', 'lightgrey',
-    'lightpink', 'lightsalmon', 'lightseagreen', 'lightskyblue', 'lightslategray', 'lightslategrey',
-    'lightsteelblue', 'lightyellow', 'lime', 'limegreen', 'linen', 'magenta', 'maroon',
-    'mediumaquamarine', 'mediumblue', 'mediumorchid', 'mediumpurple', 'mediumseagreen',
-    'mediumslateblue', 'mediumspringgreen', 'mediumturquoise', 'mediumvioletred', 'midnightblue',
-    'mintcream', 'mistyrose', 'moccasin', 'navajowhite', 'navy', 'oldlace', 'olive', 'olivedrab',
-    'orange', 'orangered', 'orchid', 'palegoldenrod', 'palegreen', 'paleturquoise',
-    'palevioletred', 'papayawhip', 'peachpuff', 'peru', 'pink', 'plum', 'powderblue',
-    'purple', 'rebeccapurple', 'red', 'rosybrown', 'royalblue', 'saddlebrown', 'salmon',
-    'sandybrown', 'seagreen', 'seashell', 'sienna', 'silver', 'skyblue', 'slateblue',
-    'slategray', 'slategrey', 'snow', 'springgreen', 'steelblue', 'tan', 'teal', 'thistle',
-    'tomato', 'turquoise', 'violet', 'wheat', 'white', 'whitesmoke', 'yellow', 'yellowgreen'
+    "aliceblue",
+    "antiquewhite",
+    "aqua",
+    "aquamarine",
+    "azure",
+    "beige",
+    "bisque",
+    "black",
+    "blanchedalmond",
+    "blue",
+    "blueviolet",
+    "brown",
+    "burlywood",
+    "cadetblue",
+    "chartreuse",
+    "chocolate",
+    "coral",
+    "cornflowerblue",
+    "cornsilk",
+    "crimson",
+    "cyan",
+    "darkblue",
+    "darkcyan",
+    "darkgoldenrod",
+    "darkgray",
+    "darkgreen",
+    "darkgrey",
+    "darkkhaki",
+    "darkmagenta",
+    "darkolivegreen",
+    "darkorange",
+    "darkorchid",
+    "darkred",
+    "darksalmon",
+    "darkseagreen",
+    "darkslateblue",
+    "darkslategray",
+    "darkslategrey",
+    "darkturquoise",
+    "darkviolet",
+    "deeppink",
+    "deepskyblue",
+    "dimgray",
+    "dimgrey",
+    "dodgerblue",
+    "firebrick",
+    "floralwhite",
+    "forestgreen",
+    "fuchsia",
+    "gainsboro",
+    "ghostwhite",
+    "gold",
+    "goldenrod",
+    "gray",
+    "green",
+    "greenyellow",
+    "grey",
+    "honeydew",
+    "hotpink",
+    "indianred",
+    "indigo",
+    "ivory",
+    "khaki",
+    "lavender",
+    "lavenderblush",
+    "lawngreen",
+    "lemonchiffon",
+    "lightblue",
+    "lightcoral",
+    "lightcyan",
+    "lightgoldenrodyellow",
+    "lightgray",
+    "lightgreen",
+    "lightgrey",
+    "lightpink",
+    "lightsalmon",
+    "lightseagreen",
+    "lightskyblue",
+    "lightslategray",
+    "lightslategrey",
+    "lightsteelblue",
+    "lightyellow",
+    "lime",
+    "limegreen",
+    "linen",
+    "magenta",
+    "maroon",
+    "mediumaquamarine",
+    "mediumblue",
+    "mediumorchid",
+    "mediumpurple",
+    "mediumseagreen",
+    "mediumslateblue",
+    "mediumspringgreen",
+    "mediumturquoise",
+    "mediumvioletred",
+    "midnightblue",
+    "mintcream",
+    "mistyrose",
+    "moccasin",
+    "navajowhite",
+    "navy",
+    "oldlace",
+    "olive",
+    "olivedrab",
+    "orange",
+    "orangered",
+    "orchid",
+    "palegoldenrod",
+    "palegreen",
+    "paleturquoise",
+    "palevioletred",
+    "papayawhip",
+    "peachpuff",
+    "peru",
+    "pink",
+    "plum",
+    "powderblue",
+    "purple",
+    "rebeccapurple",
+    "red",
+    "rosybrown",
+    "royalblue",
+    "saddlebrown",
+    "salmon",
+    "sandybrown",
+    "seagreen",
+    "seashell",
+    "sienna",
+    "silver",
+    "skyblue",
+    "slateblue",
+    "slategray",
+    "slategrey",
+    "snow",
+    "springgreen",
+    "steelblue",
+    "tan",
+    "teal",
+    "thistle",
+    "tomato",
+    "turquoise",
+    "violet",
+    "wheat",
+    "white",
+    "whitesmoke",
+    "yellow",
+    "yellowgreen",
 ]
+
 
 def plot_sequence(tracks, db, first_n_frames=None, save_folder=None):
     """Plots a whole sequence
@@ -57,12 +184,12 @@ def plot_sequence(tracks, db, first_n_frames=None, save_folder=None):
     # 	os.makedirs(output_dir)
 
     # infinite color loop
-    cyl = cy('ec', colors)
+    cyl = cy("ec", colors)
     loop_cy_iter = cyl()
     styles = defaultdict(lambda: next(loop_cy_iter))
 
     for i, v in enumerate(db):
-        img = v['img'].mul(255).permute(1, 2, 0).byte().numpy()
+        img = v["img"].mul(255).permute(1, 2, 0).byte().numpy()
         height, width, _ = img.shape
 
         dpi = 160
@@ -73,10 +200,10 @@ def plot_sequence(tracks, db, first_n_frames=None, save_folder=None):
         # Create a figure of the right size with one axes that takes up the full figure
         fig = plt.figure(figsize=figsize)
         ax = fig.add_axes([0, 0, 1, 1])
-        ax.set_aspect('equal', adjustable='box')
+        ax.set_aspect("equal", adjustable="box")
 
         # Hide spines, ticks, etc.
-        ax.axis('off')
+        ax.axis("off")
 
         # Display the image.
         ax.imshow(img)
@@ -90,14 +217,26 @@ def plot_sequence(tracks, db, first_n_frames=None, save_folder=None):
                         t_i[2] - t_i[0],
                         t_i[3] - t_i[1],
                         fill=False,
-                        linewidth=1.0, **styles[j]
-                    ))
+                        linewidth=1.0,
+                        **styles[j],
+                    )
+                )
 
-                ax.annotate(j, (t_i[0] + (t_i[2] - t_i[0]) / 2.0, t_i[1] + (t_i[3] - t_i[1]) / 2.0),
-                            color=styles[j]['ec'], weight='bold', fontsize=10, ha='center', va='center')
+                ax.annotate(
+                    j,
+                    (
+                        t_i[0] + (t_i[2] - t_i[0]) / 2.0,
+                        t_i[1] + (t_i[3] - t_i[1]) / 2.0,
+                    ),
+                    color=styles[j]["ec"],
+                    weight="bold",
+                    fontsize=10,
+                    ha="center",
+                    va="center",
+                )
 
         if save_folder:
-            fig.savefig(os.path.join(save_folder, f'{i:04d}.png'), dpi=dpi)
+            fig.savefig(os.path.join(save_folder, f"{i:04d}.png"), dpi=dpi)
             plt.close()
         else:
             fig.show()
@@ -109,7 +248,7 @@ def plot_sequence(tracks, db, first_n_frames=None, save_folder=None):
 def get_mot_accum(results, seq):
     mot_accum = mm.MOTAccumulator(auto_id=True)
     for i, data in enumerate(seq):
-        gt = data['gt']
+        gt = data["gt"]
         gt_ids = []
         if gt:
             gt_boxes = []
@@ -119,11 +258,15 @@ def get_mot_accum(results, seq):
 
             gt_boxes = np.stack(gt_boxes, axis=0)
             # x1, y1, x2, y2 --> x1, y1, width, height
-            gt_boxes = np.stack((gt_boxes[:, 0],
-                                 gt_boxes[:, 1],
-                                 gt_boxes[:, 2] - gt_boxes[:, 0],
-                                 gt_boxes[:, 3] - gt_boxes[:, 1]),
-                                axis=1)
+            gt_boxes = np.stack(
+                (
+                    gt_boxes[:, 0],
+                    gt_boxes[:, 1],
+                    gt_boxes[:, 2] - gt_boxes[:, 0],
+                    gt_boxes[:, 3] - gt_boxes[:, 1],
+                ),
+                axis=1,
+            )
         else:
             gt_boxes = np.array([])
 
@@ -138,20 +281,21 @@ def get_mot_accum(results, seq):
         if track_ids:
             track_boxes = np.stack(track_boxes, axis=0)
             # x1, y1, x2, y2 --> x1, y1, width, height
-            track_boxes = np.stack((track_boxes[:, 0],
-                                    track_boxes[:, 1],
-                                    track_boxes[:, 2] - track_boxes[:, 0],
-                                    track_boxes[:, 3] - track_boxes[:, 1]),
-                                    axis=1)
+            track_boxes = np.stack(
+                (
+                    track_boxes[:, 0],
+                    track_boxes[:, 1],
+                    track_boxes[:, 2] - track_boxes[:, 0],
+                    track_boxes[:, 3] - track_boxes[:, 1],
+                ),
+                axis=1,
+            )
         else:
             track_boxes = np.array([])
 
         distance = mm.distances.iou_matrix(gt_boxes, track_boxes, max_iou=0.5)
 
-        mot_accum.update(
-            gt_ids,
-            track_ids,
-            distance)
+        mot_accum.update(gt_ids, track_ids, distance)
 
     return mot_accum
 
@@ -162,7 +306,8 @@ def evaluate_mot_accums(accums, names, generate_overall=False):
         accums,
         metrics=mm.metrics.motchallenge_metrics,
         names=names,
-        generate_overall=generate_overall)
+        generate_overall=generate_overall,
+    )
 
     str_summary = mm.io.render_summary(
         summary,
@@ -183,8 +328,10 @@ def evaluate_obj_detect(model, data_loader):
             preds = model(imgs)
 
         for pred, target in zip(preds, targets):
-            results[target['image_id'].item()] = {'boxes': pred['boxes'].cpu(),
-                                                  'scores': pred['scores'].cpu()}
+            results[target["image_id"].item()] = {
+                "boxes": pred["boxes"].cpu(),
+                "scores": pred["scores"].cpu(),
+            }
 
     data_loader.dataset.print_eval(results)
 

@@ -30,14 +30,20 @@ def compute_box_features(box_1, box_2):
 
 
 def get_top_k_nodes(cur_node, existing_nodes, k=50):
-    cur_node_feat = cur_node['vis_feat']
+    cur_node_feat = cur_node["vis_feat"]
     scores = []
     for ex in existing_nodes:
-        scores.append(np.dot(cur_node_feat, ex['vis_feat']) / (np.linalg.norm(cur_node_feat) * np.linalg.norm(ex['vis_feat'])))
+        scores.append(
+            np.dot(cur_node_feat, ex["vis_feat"])
+            / (np.linalg.norm(cur_node_feat) * np.linalg.norm(ex["vis_feat"]))
+        )
 
-    sorted_nodes = [node for (score, node) in
-                    sorted(zip(scores, existing_nodes), reverse=True,
-                           key=lambda x: x[0])]
+    sorted_nodes = [
+        node
+        for (score, node) in sorted(
+            zip(scores, existing_nodes), reverse=True, key=lambda x: x[0]
+        )
+    ]
 
     try:
         return sorted_nodes[:k]
@@ -45,14 +51,14 @@ def get_top_k_nodes(cur_node, existing_nodes, k=50):
         return sorted_nodes
 
 
-def preprocess(out_dir, re_id_net, mot_dataset, save_imgs=False, device='cuda'):
+def preprocess(out_dir, re_id_net, mot_dataset, save_imgs=False, device="cuda"):
     for sequence in mot_dataset:
         tqdm.write('Processing "{}"'.format(str(sequence)))
         seq_out = out_dir / str(sequence)
         seq_out.mkdir(exist_ok=True)
 
         for i in tqdm(range(len(sequence) - 15)):
-            subseq_out = seq_out / 'subseq_{}'.format(i)
+            subseq_out = seq_out / "subseq_{}".format(i)
 
             try:
                 subseq_out.mkdir()
@@ -68,97 +74,130 @@ def preprocess(out_dir, re_id_net, mot_dataset, save_imgs=False, device='cuda'):
 
             for t, j in enumerate(range(i, i + 15)):
                 item = sequence[j]
-                gt = item['gt']
-                cropped = item['cropped_imgs']
+                gt = item["gt"]
+                cropped = item["cropped_imgs"]
 
                 cur_nodes = []
                 for gt_id, box in gt.items():
 
                     with torch.no_grad():
                         try:
-                            img = resize(cropped[gt_id].numpy().transpose(1, 2, 0),
-                                         (256, 128))
-                            feat = re_id_net(
-                                torch.from_numpy(img)
-                                     .permute(2, 0, 1)
-                                     .unsqueeze(0)
-                                     .to(device)
-                                     .float()
-                            ).cpu().numpy().squeeze()
+                            img = resize(
+                                cropped[gt_id].numpy().transpose(1, 2, 0), (256, 128)
+                            )
+                            feat = (
+                                re_id_net(
+                                    torch.from_numpy(img)
+                                    .permute(2, 0, 1)
+                                    .unsqueeze(0)
+                                    .to(device)
+                                    .float()
+                                )
+                                .cpu()
+                                .numpy()
+                                .squeeze()
+                            )
                         except Exception as e:
-                            tqdm.write(
-                                'Error when processing image: {}'.format(str(e)))
+                            tqdm.write("Error when processing image: {}".format(str(e)))
                             continue
 
-                    cur_nodes.append({'box': box,
-                                      'gt_id': gt_id,
-                                      'img': img,
-                                      'node_id': node_id,
-                                      'time': t,
-                                      'vis_feat': feat})
+                    cur_nodes.append(
+                        {
+                            "box": box,
+                            "gt_id": gt_id,
+                            "img": img,
+                            "node_id": node_id,
+                            "time": t,
+                            "vis_feat": feat,
+                        }
+                    )
 
                     node_id += 1
 
                 for cur in cur_nodes:
                     best_nodes = get_top_k_nodes(cur, existing_nodes)
                     for ex in best_nodes:
-                        ex_id, cur_id = ex['node_id'], cur['node_id']
+                        ex_id, cur_id = ex["node_id"], cur["node_id"]
                         edges.append([ex_id, cur_id])
 
-                        gt_edges.append(0 if ex['gt_id'] != cur['gt_id'] else 1)
+                        gt_edges.append(0 if ex["gt_id"] != cur["gt_id"] else 1)
 
-                        box_feats = compute_box_features(ex['box'], cur['box'])
+                        box_feats = compute_box_features(ex["box"], cur["box"])
                         rel_appearance = np.linalg.norm(
-                            cur['vis_feat'] - ex['vis_feat'], ord=2)
-                        box_feats.append(cur['time'] - ex['time'])
+                            cur["vis_feat"] - ex["vis_feat"], ord=2
+                        )
+                        box_feats.append(cur["time"] - ex["time"])
                         box_feats.append(rel_appearance)
                         edge_features.append(box_feats)
 
                 existing_nodes.extend(cur_nodes)
 
-            all_nodes = sorted(existing_nodes, key=lambda n: n['node_id'])
+            all_nodes = sorted(existing_nodes, key=lambda n: n["node_id"])
 
             edges = torch.tensor(edges)
             gt_edges = torch.tensor(gt_edges)
             edge_features = torch.tensor(edge_features).float()
-            node_features = torch.tensor([node['vis_feat'] for node in all_nodes])
-            node_timestamps = torch.tensor([n['time'] for n in all_nodes])
-            node_boxes = torch.tensor([n['box'] for n in all_nodes])
+            node_features = torch.tensor([node["vis_feat"] for node in all_nodes])
+            node_timestamps = torch.tensor([n["time"] for n in all_nodes])
+            node_boxes = torch.tensor([n["box"] for n in all_nodes])
 
-            torch.save(edges, subseq_out / 'edges.pth')
-            torch.save(gt_edges, subseq_out / 'gt.pth')
-            torch.save(node_timestamps, subseq_out / 'node_timestamps.pth')
-            torch.save(edge_features, subseq_out / 'edge_features.pth')
-            torch.save(node_features, subseq_out / 'node_features.pth')
-            torch.save(node_boxes, subseq_out / 'node_boxes.pth')
+            torch.save(edges, subseq_out / "edges.pth")
+            torch.save(gt_edges, subseq_out / "gt.pth")
+            torch.save(node_timestamps, subseq_out / "node_timestamps.pth")
+            torch.save(edge_features, subseq_out / "edge_features.pth")
+            torch.save(node_features, subseq_out / "node_features.pth")
+            torch.save(node_boxes, subseq_out / "node_boxes.pth")
 
             if save_imgs:
-                imgs_out = subseq_out / 'imgs'
+                imgs_out = subseq_out / "imgs"
                 imgs_out.mkdir()
                 for n in all_nodes:
-                    imsave(imgs_out / '{:5d}.png'.format(n['node_id']),
-                           (n['img'] * 255.).astype(np.uint8))
+                    imsave(
+                        imgs_out / "{:5d}.png".format(n["node_id"]),
+                        (n["img"] * 255.0).astype(np.uint8),
+                    )
 
 
-if __name__ == '__main__':
+if __name__ == "__main__":
     parser = argparse.ArgumentParser()
-    parser.add_argument('--output_dir', type=str, default='./data/preprocessed',
-                        help='Outout directory for the preprocessed sequences')
-    parser.add_argument('--dataset_path', type=str, default='./data/MOT16',
-                        help='Path to the root directory of MOT dataset')
-    parser.add_argument('--mode', type=str, default='train',
-                        help='Use train or test sequences (for test additional '
-                             'work necessary)')
-    parser.add_argument('--threshold', type=float, default=.1,
-                        help='Visibility threshold for detection to be '
-                             'considered a node')
-    parser.add_argument('--save_imgs', action='store_true',
-                        help='Save image crops according to bounding boxes for '
-                             'training the CNN (only required if this is '
-                             'wanted)')
-    parser.add_argument('--device', type=str, default='cuda',
-                        choices=['cuda', 'cpu'], help='Device to run the '
-                                                      'preprocessing on.')
+    parser.add_argument(
+        "--output_dir",
+        type=str,
+        default="./data/preprocessed",
+        help="Outout directory for the preprocessed sequences",
+    )
+    parser.add_argument(
+        "--dataset_path",
+        type=str,
+        default="./data/MOT16",
+        help="Path to the root directory of MOT dataset",
+    )
+    parser.add_argument(
+        "--mode",
+        type=str,
+        default="train",
+        help="Use train or test sequences (for test additional " "work necessary)",
+    )
+    parser.add_argument(
+        "--threshold",
+        type=float,
+        default=0.1,
+        help="Visibility threshold for detection to be " "considered a node",
+    )
+    parser.add_argument(
+        "--save_imgs",
+        action="store_true",
+        help="Save image crops according to bounding boxes for "
+        "training the CNN (only required if this is "
+        "wanted)",
+    )
+    parser.add_argument(
+        "--device",
+        type=str,
+        default="cuda",
+        choices=["cuda", "cpu"],
+        help="Device to run the " "preprocessing on.",
+    )
     args = parser.parse_args()
 
     output_dir = Path(args.output_dir)

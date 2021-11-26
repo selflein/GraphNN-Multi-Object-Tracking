@@ -12,40 +12,39 @@ import torch
 
 def listdir_nohidden(path):
     for f in os.listdir(path):
-        if not f.startswith('.'):
+        if not f.startswith("."):
             yield f
 
 
 class MOT16ObjDetect(torch.utils.data.Dataset):
-    """ Data class for the Multiple Object Tracking Dataset
-    """
+    """Data class for the Multiple Object Tracking Dataset"""
 
     def __init__(self, root, transforms=None, vis_threshold=0.25):
         self.root = root
         self.transforms = transforms
         self._vis_threshold = vis_threshold
-        self._classes = ('background', 'pedestrian')
+        self._classes = ("background", "pedestrian")
         self._img_paths = []
 
         for f in listdir_nohidden(root):
             path = os.path.join(root, f)
-            config_file = os.path.join(path, 'seqinfo.ini')
+            config_file = os.path.join(path, "seqinfo.ini")
 
-            assert os.path.exists(config_file), \
-                'Path does not exist: {}'.format(config_file)
+            assert os.path.exists(config_file), "Path does not exist: {}".format(
+                config_file
+            )
 
             config = configparser.ConfigParser()
             config.read(config_file)
-            seq_len = int(config['Sequence']['seqLength'])
-            im_ext = config['Sequence']['imExt']
-            im_dir = config['Sequence']['imDir']
+            seq_len = int(config["Sequence"]["seqLength"])
+            im_ext = config["Sequence"]["imExt"]
+            im_dir = config["Sequence"]["imDir"]
 
             _imDir = os.path.join(path, im_dir)
 
             for i in range(1, seq_len + 1):
                 img_path = os.path.join(_imDir, f"{i:06d}{im_ext}")
-                assert os.path.exists(img_path), \
-                    'Path does not exist: {img_path}'
+                assert os.path.exists(img_path), "Path does not exist: {img_path}"
                 # self._img_paths.append((img_path, im_width, im_height))
                 self._img_paths.append(img_path)
 
@@ -54,42 +53,48 @@ class MOT16ObjDetect(torch.utils.data.Dataset):
         return len(self._classes)
 
     def _get_annotation(self, idx):
-        """
-        """
+        """ """
 
-        if 'test' in self.root:
+        if "test" in self.root:
 
             num_objs = 0
             boxes = torch.zeros((num_objs, 4), dtype=torch.float32)
 
-            return {'boxes': boxes,
-                'labels': torch.ones((num_objs,), dtype=torch.int64),
-                'image_id': torch.tensor([idx]),
-                'area': (boxes[:, 3] - boxes[:, 1]) * (boxes[:, 2] - boxes[:, 0]),
-                'iscrowd': torch.zeros((num_objs,), dtype=torch.int64),}
+            return {
+                "boxes": boxes,
+                "labels": torch.ones((num_objs,), dtype=torch.int64),
+                "image_id": torch.tensor([idx]),
+                "area": (boxes[:, 3] - boxes[:, 1]) * (boxes[:, 2] - boxes[:, 0]),
+                "iscrowd": torch.zeros((num_objs,), dtype=torch.int64),
+            }
 
         img_path = self._img_paths[idx]
-        file_index = int(os.path.basename(img_path).split('.')[0])
+        file_index = int(os.path.basename(img_path).split(".")[0])
 
-        gt_file = os.path.join(os.path.dirname(
-            os.path.dirname(img_path)), 'gt', 'gt.txt')
+        gt_file = os.path.join(
+            os.path.dirname(os.path.dirname(img_path)), "gt", "gt.txt"
+        )
 
-        assert os.path.exists(gt_file), \
-            'GT file does not exist: {}'.format(gt_file)
+        assert os.path.exists(gt_file), "GT file does not exist: {}".format(gt_file)
 
         bounding_boxes = []
 
         with open(gt_file, "r") as inf:
-            reader = csv.reader(inf, delimiter=',')
+            reader = csv.reader(inf, delimiter=",")
             for row in reader:
                 visibility = float(row[8])
-                if int(row[0]) == file_index and int(row[6]) == 1 and int(row[7]) == 1 and visibility >= self._vis_threshold:
+                if (
+                    int(row[0]) == file_index
+                    and int(row[6]) == 1
+                    and int(row[7]) == 1
+                    and visibility >= self._vis_threshold
+                ):
                     bb = {}
-                    bb['bb_left'] = int(row[2])
-                    bb['bb_top'] = int(row[3])
-                    bb['bb_width'] = int(row[4])
-                    bb['bb_height'] = int(row[5])
-                    bb['visibility'] = float(row[8])
+                    bb["bb_left"] = int(row[2])
+                    bb["bb_top"] = int(row[3])
+                    bb["bb_width"] = int(row[4])
+                    bb["bb_height"] = int(row[5])
+                    bb["visibility"] = float(row[8])
 
                     bounding_boxes.append(bb)
 
@@ -100,24 +105,26 @@ class MOT16ObjDetect(torch.utils.data.Dataset):
 
         for i, bb in enumerate(bounding_boxes):
             # Make pixel indexes 0-based, should already be 0-based (or not)
-            x1 = bb['bb_left'] - 1
-            y1 = bb['bb_top'] - 1
+            x1 = bb["bb_left"] - 1
+            y1 = bb["bb_top"] - 1
             # This -1 accounts for the width (width of 1 x1=x2)
-            x2 = x1 + bb['bb_width'] - 1
-            y2 = y1 + bb['bb_height'] - 1
+            x2 = x1 + bb["bb_width"] - 1
+            y2 = y1 + bb["bb_height"] - 1
 
             boxes[i, 0] = x1
             boxes[i, 1] = y1
             boxes[i, 2] = x2
             boxes[i, 3] = y2
-            visibilities[i] = bb['visibility']
+            visibilities[i] = bb["visibility"]
 
-        return {'boxes': boxes,
-                'labels': torch.ones((num_objs,), dtype=torch.int64),
-                'image_id': torch.tensor([idx]),
-                'area': (boxes[:, 3] - boxes[:, 1]) * (boxes[:, 2] - boxes[:, 0]),
-                'iscrowd': torch.zeros((num_objs,), dtype=torch.int64),
-                'visibilities': visibilities,}
+        return {
+            "boxes": boxes,
+            "labels": torch.ones((num_objs,), dtype=torch.int64),
+            "image_id": torch.tensor([idx]),
+            "area": (boxes[:, 3] - boxes[:, 1]) * (boxes[:, 2] - boxes[:, 0]),
+            "iscrowd": torch.zeros((num_objs,), dtype=torch.int64),
+            "visibilities": visibilities,
+        }
 
     def __getitem__(self, idx):
         # load images ad masks
@@ -160,37 +167,48 @@ class MOT16ObjDetect(torch.utils.data.Dataset):
         ./MOT17-14.txt
         """
 
-        #format_str = "{}, -1, {}, {}, {}, {}, {}, -1, -1, -1"
+        # format_str = "{}, -1, {}, {}, {}, {}, {}, -1, -1, -1"
         files = {}
         for image_id, res in results.items():
             path = self._img_paths[image_id]
             img1, name = osp.split(path)
             # get image number out of name
-            frame = int(name.split('.')[0])
+            frame = int(name.split(".")[0])
             # smth like /train/MOT17-09-FRCNN or /train/MOT17-09
             tmp = osp.dirname(img1)
             # get the folder name of the sequence and split it
-            tmp = osp.basename(tmp).split('-')
+            tmp = osp.basename(tmp).split("-")
             # Now get the output name of the file
-            out = tmp[0]+'-'+tmp[1]+'.txt'
+            out = tmp[0] + "-" + tmp[1] + ".txt"
             outfile = osp.join(output_dir, out)
 
             # check if out in keys and create empty list if not
             if outfile not in files.keys():
                 files[outfile] = []
 
-            for i, (box, score) in enumerate(zip(res['boxes'], res['scores'])):
+            for i, (box, score) in enumerate(zip(res["boxes"], res["scores"])):
                 x1 = box[0].item()
                 y1 = box[1].item()
                 x2 = box[2].item()
                 y2 = box[3].item()
                 # Changed to be able to read into tracker
                 files[outfile].append(
-                    [frame, i, round(x1 + 1), round(y1+1), round(x2 - x1+1), round(y2 - y1+1), 1, 1, score.item()])
+                    [
+                        frame,
+                        i,
+                        round(x1 + 1),
+                        round(y1 + 1),
+                        round(x2 - x1 + 1),
+                        round(y2 - y1 + 1),
+                        1,
+                        1,
+                        score.item(),
+                    ]
+                )
 
         for k, v in files.items():
             with open(k, "w") as of:
-                writer = csv.writer(of, delimiter=',')
+                writer = csv.writer(of, delimiter=",")
                 for d in v:
                     writer.writerow(d)
 
@@ -210,7 +228,9 @@ class MOT16ObjDetect(torch.utils.data.Dataset):
 
         for idx in range(len(self._img_paths)):
             annotation = self._get_annotation(idx)
-            bbox = annotation['boxes'][annotation['visibilities'].gt(self._vis_threshold)]
+            bbox = annotation["boxes"][
+                annotation["visibilities"].gt(self._vis_threshold)
+            ]
             found = np.zeros(bbox.shape[0])
             gt.append(bbox.cpu().numpy())
             gt_found.append(found)
@@ -228,7 +248,7 @@ class MOT16ObjDetect(torch.utils.data.Dataset):
             # im_gt = annotation['boxes'][annotation['visibilities'].gt(0.5)].cpu().numpy()
             # found = np.zeros(im_gt.shape[0])
 
-            im_det = results[im_index]['boxes'].cpu().numpy()
+            im_det = results[im_index]["boxes"].cpu().numpy()
 
             im_tp = np.zeros(len(im_det))
             im_fp = np.zeros(len(im_det))
@@ -242,14 +262,17 @@ class MOT16ObjDetect(torch.utils.data.Dataset):
                     iymin = np.maximum(im_gt[:, 1], d[1])
                     ixmax = np.minimum(im_gt[:, 2], d[2])
                     iymax = np.minimum(im_gt[:, 3], d[3])
-                    iw = np.maximum(ixmax - ixmin + 1., 0.)
-                    ih = np.maximum(iymax - iymin + 1., 0.)
+                    iw = np.maximum(ixmax - ixmin + 1.0, 0.0)
+                    ih = np.maximum(iymax - iymin + 1.0, 0.0)
                     inters = iw * ih
 
                     # union
-                    uni = ((d[2] - d[0] + 1.) * (d[3] - d[1] + 1.) +
-                            (im_gt[:, 2] - im_gt[:, 0] + 1.) *
-                            (im_gt[:, 3] - im_gt[:, 1] + 1.) - inters)
+                    uni = (
+                        (d[2] - d[0] + 1.0) * (d[3] - d[1] + 1.0)
+                        + (im_gt[:, 2] - im_gt[:, 0] + 1.0)
+                        * (im_gt[:, 3] - im_gt[:, 1] + 1.0)
+                        - inters
+                    )
 
                     overlaps = inters / uni
                     ovmax = np.max(overlaps)
@@ -257,12 +280,12 @@ class MOT16ObjDetect(torch.utils.data.Dataset):
 
                 if ovmax > ovthresh:
                     if found[jmax] == 0:
-                        im_tp[i] = 1.
-                        found[jmax] = 1.
+                        im_tp[i] = 1.0
+                        found[jmax] = 1.0
                     else:
-                        im_fp[i] = 1.
+                        im_fp[i] = 1.0
                 else:
-                    im_fp[i] = 1.
+                    im_fp[i] = 1.0
 
             tp[im_index] = im_tp
             fp[im_index] = im_fp
@@ -280,8 +303,8 @@ class MOT16ObjDetect(torch.utils.data.Dataset):
         for tp_im, fp_im in zip(tp, fp):
             if type(tp_im) != type([]):
                 s = tp_im.shape[0]
-                tp_flat[i:s+i] = tp_im
-                fp_flat[i:s+i] = fp_im
+                tp_flat[i : s + i] = tp_im
+                fp_flat[i : s + i] = fp_im
                 i += s
 
         tp = np.cumsum(tp_flat)
@@ -294,8 +317,8 @@ class MOT16ObjDetect(torch.utils.data.Dataset):
 
         # correct AP calculation
         # first append sentinel values at the end
-        mrec = np.concatenate(([0.], rec, [1.]))
-        mpre = np.concatenate(([0.], prec, [0.]))
+        mrec = np.concatenate(([0.0], rec, [1.0]))
+        mpre = np.concatenate(([0.0], prec, [0.0]))
 
         # compute the precision envelope
         for i in range(mpre.size - 1, 0, -1):
