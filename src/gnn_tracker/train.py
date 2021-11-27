@@ -1,8 +1,7 @@
-from os import O_SYNC
 import sys
-import math
 import argparse
 from pathlib import Path
+from typing import Dict
 from collections import defaultdict
 
 import torch
@@ -47,15 +46,34 @@ def get_parser():
     parser.add_argument(
         "--train_cnn",
         action="store_true",
-        help="Choose to train the CNN providing node " "embeddings",
+        help="Choose to train the CNN providing node embeddings",
     )
     parser.add_argument(
         "--use_focal",
         action="store_true",
-        help="Use focal loss instead of BCE loss for edge " "classification",
+        help="Use focal loss instead of BCE loss for edge classification",
     )
 
     return parser
+
+
+def _compute_metrics(
+    pred: torch.Tensor, gt: torch.Tensor, threshold: float = 0.5, prefix: str = ""
+) -> Dict[str, float]:
+    thresh_pred = pred > threshold
+    acc = (thresh_pred == gt).float().mean()
+
+    true_positives = gt[thresh_pred].sum()
+    recall = true_positives / gt.sum()
+    precision = true_positives / thresh_pred.sum()
+    f1 = 2 * (precision * recall) / (precision + recall)
+
+    return {
+        f"{prefix}Accuracy": acc.item(),
+        f"{prefix}Recall": recall.item(),
+        f"{prefix}Precision": precision.item(),
+        f"{prefix}F1": f1.item(),
+    }
 
 
 class GraphNNMOTracker:
@@ -73,6 +91,7 @@ class GraphNNMOTracker:
         self.model_save_dir.mkdir(exist_ok=True)
 
         self.epoch = 0
+        self.best = float("-inf")
 
     def train_dataloader(self):
         ds = PreprocessedDataset(
@@ -127,6 +146,7 @@ class GraphNNMOTracker:
         else:
             criterion = torch.nn.BCELoss()
 
+        preds, gts = [], []
         for epoch in range(self.config.epochs):
             self.epoch += 1
             self.net.train()
@@ -158,12 +178,11 @@ class GraphNNMOTracker:
                 out = self.net(data, initial_x).squeeze(1)
                 loss = criterion(out, gt)
 
-                with torch.no_grad():
-                    acc = ((out > 0.5) == gt).float().mean().item()
+                gts.append(gt.detach().cpu())
+                preds.append(out.detach().cpu())
 
-                metrics["train/loss"].append(loss.item())
-                metrics["train/acc"].append(acc)
-                pbar.set_description(f"Loss: {loss.item():.4f}, Acc: {acc:.2f}")
+                metrics["train/Loss"].append(loss.item())
+                pbar.set_description(f"Loss: {loss.item():.04f}")
 
                 opt.zero_grad()
                 loss.backward()
@@ -172,12 +191,17 @@ class GraphNNMOTracker:
                     opt_re_id.step()
                     opt_re_id.zero_grad()
 
+            train_metrics = _compute_metrics(
+                torch.cat(preds), torch.cat(gts), prefix="train/"
+            )
+
+            preds, gts = [], []
             with torch.no_grad():
                 self.net.eval()
                 if self.config.train_cnn:
                     self.re_id_net.eval()
                 pbar = tqdm(val_loader)
-                for i, data in enumerate(pbar):
+                for _, data in enumerate(pbar):
                     data = data.to(self.device)
                     gt = data.y.float()
 
@@ -198,21 +222,25 @@ class GraphNNMOTracker:
                     out = self.net(data, initial_x).squeeze(1)
                     loss = criterion(out, gt)
 
-                    with torch.no_grad():
-                        acc = ((out > 0.5) == gt).float().mean().item()
+                    gts.append(gt.detach().cpu())
+                    preds.append(out.detach().cpu())
 
-                    metrics["val/loss"].append(loss.item())
-                    metrics["val/acc"].append(acc)
-                    pbar.set_description(
-                        f"Validation epoch {self.epoch}: "
-                        f"Loss: {loss.item():.4f}, "
-                        f"Acc: {acc:.2f}"
-                    )
+                    metrics["val/Loss"].append(loss.item())
+                    pbar.set_description(f"Loss: {loss.item():.04f}")
 
+            val_metrics = _compute_metrics(
+                torch.cat(preds), torch.cat(gts), prefix="val/"
+            )
             metrics = {k: np.mean(v) for k, v in metrics.items()}
+            metrics.update({**train_metrics, **val_metrics})
+
             self.writer.log(metrics, epoch)
             if epoch % 10 == 0 and epoch > 5:
                 self.save(self.model_save_dir / "checkpoints_{}.pth".format(epoch))
+
+            if metrics["val/F1"] > self.best:
+                self.best = metrics["val/F1"]
+                self.save(self.model_save_dir / "checkpoints_best.pth")
 
     def save(self, path: Path):
         torch.save(self.net.state_dict(), path)

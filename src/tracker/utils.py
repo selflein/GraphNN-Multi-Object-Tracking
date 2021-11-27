@@ -310,9 +310,7 @@ def evaluate_mot_accums(accums, names, generate_overall=False):
     )
 
     str_summary = mm.io.render_summary(
-        summary,
-        formatters=mh.formatters,
-        namemap=mm.io.motchallenge_metric_names,
+        summary, formatters=mh.formatters, namemap=mm.io.motchallenge_metric_names,
     )
     print(str_summary)
 

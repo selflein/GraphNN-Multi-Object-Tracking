@@ -13,17 +13,18 @@ from src.gnn_tracker.modules.graph_nn import Net
 
 
 def load_subseq(subseq):
-    edge_feats = torch.load(subseq / 'edge_features.pth').float()
-    e = torch.load(subseq / 'edges.pth').long()
-    node_feats = torch.load(subseq / 'node_features.pth')
-    gt_edges = torch.load(subseq / 'gt.pth')
-    node_ts = torch.load(subseq / 'node_timestamps.pth')
-    node_boxes = torch.load(subseq / 'node_boxes.pth')
+    edge_feats = torch.load(subseq / "edge_features.pth").float()
+    e = torch.load(subseq / "edges.pth").long()
+    node_feats = torch.load(subseq / "node_features.pth")
+    gt_edges = torch.load(subseq / "gt.pth")
+    node_ts = torch.load(subseq / "node_timestamps.pth")
+    node_boxes = torch.load(subseq / "node_boxes.pth")
     return node_ts, node_feats, node_boxes, edge_feats, gt_edges, e
 
 
-def combine_subsequences(subsequences, net, device: str = 'cuda',
-                         threshold: float = 0.5):
+def combine_subsequences(
+    subsequences, net, device: str = "cuda", threshold: float = 0.4
+):
     """Takes the overlapping (with one frame each!) subsequences of an sequence
     and combines them into one big consistent graph where overlapping edge
     classifications are averaged.
@@ -33,19 +34,22 @@ def combine_subsequences(subsequences, net, device: str = 'cuda',
 
     global_id = 0
     for frame, subseq in enumerate(tqdm(subsequences)):
-        (node_timestamps, node_features,
-         boxes, edge_features, gt, e) = load_subseq(subseq)
+        (node_timestamps, node_features, boxes, edge_features, gt, e) = load_subseq(
+            subseq
+        )
 
         # Case where no detections in frame
         if len(node_features) == 0 or len(edge_features) == 0:
             continue
 
-        data = Data(x=node_features,
-                    edge_index=e.t(),
-                    edge_attr=edge_features,
-                    y=gt,
-                    node_timestamps=node_timestamps,
-                    batch=None).to(device)
+        data = Data(
+            x=node_features,
+            edge_index=e.t(),
+            edge_attr=edge_features,
+            y=gt,
+            node_timestamps=node_timestamps,
+            batch=None,
+        ).to(device)
 
         with torch.no_grad():
             # Shape (E,) array with classification score for every edge
@@ -74,7 +78,11 @@ def combine_subsequences(subsequences, net, device: str = 'cuda',
             edge_scores[(global_i, global_j)].append(pred[edge_id].item())
 
     # Average predictions of each edge
-    edge_scores = {edge: mean(scores) for edge, scores in edge_scores.items() if mean(scores) > threshold}
+    edge_scores = {
+        edge: mean(scores)
+        for edge, scores in edge_scores.items()
+        if mean(scores) > threshold
+    }
 
     global_id_to_t_box = {v: k for k, v in t_box_to_global_id.items()}
     return global_id_to_t_box, edge_scores
@@ -96,7 +104,7 @@ def get_tracks(edge_scores: Dict[Tuple[int, int], float]) -> List[List[int]]:
     for (i, j), score in edge_scores.items():
         out_edges[i].append((j, score))
         in_edges[j].append((i, score))
-    
+
     greedy_edges = set()
     max_node_id = max(out_edges.keys() | in_edges.keys())
     edges_to_remove = set()
@@ -123,8 +131,10 @@ def get_tracks(edge_scores: Dict[Tuple[int, int], float]) -> List[List[int]]:
     edge_to_next = {}
     for (i, j) in greedy_edges:
         if i in greedy_edges:
-            raise ValueError("Greedy rounding did not realize a graph "
-                             "satisfying flow constraints.")
+            raise ValueError(
+                "Greedy rounding did not realize a graph "
+                "satisfying flow constraints."
+            )
         edge_to_next[i] = j
 
     # Convert edge transitions to tracks of nodes
@@ -147,28 +157,39 @@ def get_tracks(edge_scores: Dict[Tuple[int, int], float]) -> List[List[int]]:
 
 
 def write_tracks_to_csv(tracks: dict, out: Path):
-    with out.open('w') as of:
-        writer = csv.writer(of, delimiter=',')
+    with out.open("w") as of:
+        writer = csv.writer(of, delimiter=",")
         for track_id, track in tracks.items():
             for frame, bb in track.items():
                 x1 = bb[0]
                 y1 = bb[1]
                 x2 = bb[2]
                 y2 = bb[3]
-                writer.writerow([frame + 1, track_id + 1, x1 + 1, y1 + 1,
-                                 x2 - x1 + 1, y2 - y1 + 1, -1, -1, -1, -1])
+                writer.writerow(
+                    [
+                        frame + 1,
+                        track_id + 1,
+                        x1 + 1,
+                        y1 + 1,
+                        x2 - x1 + 1,
+                        y2 - y1 + 1,
+                        -1,
+                        -1,
+                        -1,
+                        -1,
+                    ]
+                )
 
 
-def get_track_dict(subseqs_dir: Path, net_weight_path: Path,
-                   device: str = 'cuda'):
-    subseqs = sorted(subseqs_dir.iterdir(), key=lambda f: int(f.stem.split('_')[1]))
+def get_track_dict(subseqs_dir: Path, net_weight_path: Path, device: str = "cuda"):
+    subseqs = sorted(subseqs_dir.iterdir(), key=lambda f: int(f.stem.split("_")[1]))
 
     edge_classifier = Net().to(device).eval()
-    edge_classifier.load_state_dict(torch.load(net_weight_path, map_location=torch.device(device)))
+    edge_classifier.load_state_dict(
+        torch.load(net_weight_path, map_location=torch.device(device))
+    )
 
-    id_to_t_box, edge_scores = combine_subsequences(subseqs,
-                                                    edge_classifier,
-                                                    device)
+    id_to_t_box, edge_scores = combine_subsequences(subseqs, edge_classifier, device)
     tracks = get_tracks(edge_scores)
 
     track_dict = defaultdict(dict)
@@ -182,15 +203,21 @@ def get_track_dict(subseqs_dir: Path, net_weight_path: Path,
     return track_dict
 
 
-if __name__ == '__main__':
+if __name__ == "__main__":
     parser = argparse.ArgumentParser()
-    parser.add_argument('--preprocessed_sequences', type=str, nargs='+',
-                        help='Path(s) to the preprocessed sequence (!) folder')
-    parser.add_argument('--net_weights', type=str,
-                        help='Path to the trained GraphNN')
-    parser.add_argument('--out', type=str,
-                        help='Path of the directory where to write output '
-                             'files of the tracks in the MOT16 format')
+    parser.add_argument(
+        "--preprocessed_sequences",
+        type=str,
+        nargs="+",
+        help="Path(s) to the preprocessed sequence (!) folder",
+    )
+    parser.add_argument("--net_weights", type=str, help="Path to the trained GraphNN")
+    parser.add_argument(
+        "--out",
+        type=str,
+        help="Path of the directory where to write output "
+        "files of the tracks in the MOT16 format",
+    )
     parser.add_argument("--device", default="cuda")
     args = parser.parse_args()
 
@@ -198,4 +225,4 @@ if __name__ == '__main__':
         seq_folder = Path(sequence_folder)
         all_tracks = get_track_dict(seq_folder, Path(args.net_weights), args.device)
 
-        write_tracks_to_csv(all_tracks, Path(args.out) / f'{seq_folder.name}.txt')
+        write_tracks_to_csv(all_tracks, Path(args.out) / f"{seq_folder.name}.txt")
