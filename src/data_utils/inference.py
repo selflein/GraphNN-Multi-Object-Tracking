@@ -78,80 +78,51 @@ def combine_subsequences(
             edge_scores[(global_i, global_j)].append(pred[edge_id].item())
 
     # Average predictions of each edge
-    edge_scores = {
-        edge: mean(scores)
-        for edge, scores in edge_scores.items()
-        if mean(scores) > threshold
-    }
+    edge_to_nexts = defaultdict(list)
+    for (i, j), scores in edge_scores.items():
+        score = mean(scores)
+        if score > threshold:
+            edge_to_nexts[i].append((j, score))
 
     global_id_to_t_box = {v: k for k, v in t_box_to_global_id.items()}
-    return global_id_to_t_box, edge_scores
+    return global_id_to_t_box, edge_to_nexts, global_id
 
 
-def get_tracks(edge_scores: Dict[Tuple[int, int], float]) -> List[List[int]]:
+def get_tracks(edge_scores: Dict[int, List[Tuple[int, float]]], num_nodes: int) -> List[List[int]]:
     """Implements the greedy rounding scheme described in Section B.1. in order
     to obtain a graph satisfying the flow constraints. 
 
     Args:
-        edge_scores: Dictionary containing the edges (as tuples (i, j)) as keys
-            and assigned probability as value.
+        edge_scores: Dictionary containing the source node ID as keys
+            and list of target node ID and probability as value.
 
     Returns:
         List of tracks consisting of node IDs.
     """
-    out_edges = defaultdict(list)
-    in_edges = defaultdict(list)
-    for (i, j), score in edge_scores.items():
-        out_edges[i].append((j, score))
-        in_edges[j].append((i, score))
-
-    greedy_edges = set()
-    max_node_id = max(out_edges.keys() | in_edges.keys())
-    edges_to_remove = set()
-    for node_id in range(max_node_id + 1):
-        # Only consider outgoing edges with maximum score satisfying condition 1
-        if node_id in out_edges:
-            out_edge = max(out_edges[node_id], key=lambda e: e[1])[0]
-            greedy_edges.add((node_id, out_edge))
-
-            for (rem, _) in out_edges[node_id]:
-                if rem != out_edge and (node_id, rem) in greedy_edges:
-                    edges_to_remove.add((node_id, rem))
-
-        # Only consider incoming edges with maximum score satisfying condition 2
-        if node_id in in_edges and len(in_edges[node_id]) > 1:
-            in_edge = max(in_edges[node_id], key=lambda e: e[1])[0]
-            greedy_edges.add((in_edge, node_id))
-
-            for (rem, _) in in_edges[node_id]:
-                if rem != in_edge and (rem, node_id) in greedy_edges:
-                    edges_to_remove.add((rem, node_id))
-
-    greedy_edges -= edges_to_remove
-    edge_to_next = {}
-    for (i, j) in greedy_edges:
-        if i in greedy_edges:
-            raise ValueError(
-                "Greedy rounding did not realize a graph "
-                "satisfying flow constraints."
-            )
-        edge_to_next[i] = j
-
-    # Convert edge transitions to tracks of nodes
     visited_nodes = set()
     all_tracks = []
-    for node_id in range(max_node_id + 1):
+
+    # We can iterate based on the node ID since the IDs imply a temporal
+    # sorting of the graph
+    for node_id in range(num_nodes):
         if node_id in visited_nodes:
             continue
 
         visited_nodes.add(node_id)
         track = [node_id]
         cur_node_id = node_id
-        while cur_node_id in edge_to_next:
-            next_node_id = edge_to_next[cur_node_id]
+        while cur_node_id in edge_scores:
+            remaining_edges = [n for n in edge_scores[cur_node_id] if n[0] not in visited_nodes]
+            if len(remaining_edges) == 0:
+                break
+
+            # Get the next edge of maximum score
+            next_node_id, _ = max(remaining_edges, key=lambda n: n[1])
+
             track.append(next_node_id)
             visited_nodes.add(next_node_id)
             cur_node_id = next_node_id
+
         all_tracks.append(track)
     return all_tracks
 
@@ -189,8 +160,8 @@ def get_track_dict(subseqs_dir: Path, net_weight_path: Path, device: str = "cuda
         torch.load(net_weight_path, map_location=torch.device(device))
     )
 
-    id_to_t_box, edge_scores = combine_subsequences(subseqs, edge_classifier, device)
-    tracks = get_tracks(edge_scores)
+    id_to_t_box, edge_scores, num_nodes = combine_subsequences(subseqs, edge_classifier, device)
+    tracks = get_tracks(edge_scores, num_nodes)
 
     track_dict = defaultdict(dict)
     for track_id, track in enumerate(tracks):
