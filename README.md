@@ -106,7 +106,7 @@ optional arguments:
 See Train section. Use with `--mode test` to use the test folder of the MOT16 dataset.
 
 ### Inference
-Run `src/data_utils/inference.py` to obtain tracks as `.txt` file for preprocessed sequences. Pretrained model weights can be downloaded from [here](https://drive.google.com/file/d/1Ocy1ugsnIgCdb-DnKSuyI2127VTvlTq_/view?usp=sharing).
+Run `src/data_utils/inference.py` to obtain tracks as `.txt` file for preprocessed sequences. Pretrained model weights can be downloaded from [releases section](https://github.com/selflein/GraphNN-Multi-Object-Tracking/releases).
 ```
 usage: inference.py [-h] [--preprocessed_sequences PREPROCESSED_SEQUENCE_1 ...]
                     [--net_weights NET_WEIGHTS] [--out OUT]
