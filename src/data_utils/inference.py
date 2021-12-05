@@ -3,6 +3,7 @@ import argparse
 from pathlib import Path
 from statistics import mean
 from collections import defaultdict
+from typing import Dict, Tuple, List
 
 import torch
 from tqdm import tqdm
@@ -12,16 +13,18 @@ from src.gnn_tracker.modules.graph_nn import Net
 
 
 def load_subseq(subseq):
-    edge_feats = torch.load(subseq / 'edge_features.pth')
-    e = torch.load(subseq / 'edges.pth').long()
-    node_feats = torch.load(subseq / 'node_features.pth')
-    gt_edges = torch.load(subseq / 'gt.pth')
-    node_ts = torch.load(subseq / 'node_timestamps.pth')
-    node_boxes = torch.load(subseq / 'node_boxes.pth')
+    edge_feats = torch.load(subseq / "edge_features.pth").float()
+    e = torch.load(subseq / "edges.pth").long()
+    node_feats = torch.load(subseq / "node_features.pth")
+    gt_edges = torch.load(subseq / "gt.pth")
+    node_ts = torch.load(subseq / "node_timestamps.pth")
+    node_boxes = torch.load(subseq / "node_boxes.pth")
     return node_ts, node_feats, node_boxes, edge_feats, gt_edges, e
 
 
-def combine_subsequences(subsequences, net, device: str = 'cuda'):
+def combine_subsequences(
+    subsequences, net, device: str = "cuda", threshold: float = 0.4
+):
     """Takes the overlapping (with one frame each!) subsequences of an sequence
     and combines them into one big consistent graph where overlapping edge
     classifications are averaged.
@@ -31,19 +34,22 @@ def combine_subsequences(subsequences, net, device: str = 'cuda'):
 
     global_id = 0
     for frame, subseq in enumerate(tqdm(subsequences)):
-        (node_timestamps, node_features,
-         boxes, edge_features, gt, e) = load_subseq(subseq)
+        (node_timestamps, node_features, boxes, edge_features, gt, e) = load_subseq(
+            subseq
+        )
 
         # Case where no detections in frame
         if len(node_features) == 0 or len(edge_features) == 0:
             continue
 
-        data = Data(x=node_features,
-                    edge_index=e.t(),
-                    edge_attr=edge_features,
-                    y=gt,
-                    node_timestamps=node_timestamps,
-                    batch=None).to(device)
+        data = Data(
+            x=node_features,
+            edge_index=e.t(),
+            edge_attr=edge_features,
+            y=gt,
+            node_timestamps=node_timestamps,
+            batch=None,
+        ).to(device)
 
         with torch.no_grad():
             # Shape (E,) array with classification score for every edge
@@ -72,58 +78,90 @@ def combine_subsequences(subsequences, net, device: str = 'cuda'):
             edge_scores[(global_i, global_j)].append(pred[edge_id].item())
 
     # Average predictions of each edge
-    edge_scores = {edge: mean(scores) for edge, scores in edge_scores.items()}
+    edge_to_nexts = defaultdict(list)
+    for (i, j), scores in edge_scores.items():
+        score = mean(scores)
+        if score > threshold:
+            edge_to_nexts[i].append((j, score))
 
-    pred_edges = [edge for edge, score in edge_scores.items() if score > 0.4]
     global_id_to_t_box = {v: k for k, v in t_box_to_global_id.items()}
-    return global_id_to_t_box, pred_edges
+    return global_id_to_t_box, edge_to_nexts, global_id
 
 
-def get_tracks(e):
-    edge_to_next = defaultdict(list)
-    for i, j in e:
-        edge_to_next[i].append(j)
+def get_tracks(edge_scores: Dict[int, List[Tuple[int, float]]], num_nodes: int) -> List[List[int]]:
+    """Implements the greedy rounding scheme described in Section B.1. in order
+    to obtain a graph satisfying the flow constraints. 
 
-    def traverse(neighbors, rem_nodes, track):
-        for neighbor in neighbors:
-            if neighbor in rem_nodes:
-                track.append(neighbor)
-                rem_nodes.remove(neighbor)
-                traverse(edge_to_next[neighbor], rem_nodes, track)
-                break
-        return track
+    Args:
+        edge_scores: Dictionary containing the source node ID as keys
+            and list of target node ID and probability as value.
 
+    Returns:
+        List of tracks consisting of node IDs.
+    """
+    visited_nodes = set()
     all_tracks = []
-    remaining_nodes = list(edge_to_next.keys())
-    while remaining_nodes:
-        all_tracks.append(traverse([remaining_nodes[0]], remaining_nodes, []))
+
+    # We can iterate based on the node ID since the IDs imply a temporal
+    # sorting of the graph
+    for node_id in range(num_nodes):
+        if node_id in visited_nodes:
+            continue
+
+        visited_nodes.add(node_id)
+        track = [node_id]
+        cur_node_id = node_id
+        while cur_node_id in edge_scores:
+            remaining_edges = [n for n in edge_scores[cur_node_id] if n[0] not in visited_nodes]
+            if len(remaining_edges) == 0:
+                break
+
+            # Get the next edge of maximum score
+            next_node_id, _ = max(remaining_edges, key=lambda n: n[1])
+
+            track.append(next_node_id)
+            visited_nodes.add(next_node_id)
+            cur_node_id = next_node_id
+
+        all_tracks.append(track)
     return all_tracks
 
 
 def write_tracks_to_csv(tracks: dict, out: Path):
-    with out.open('w') as of:
-        writer = csv.writer(of, delimiter=',')
+    with out.open("w") as of:
+        writer = csv.writer(of, delimiter=",")
         for track_id, track in tracks.items():
             for frame, bb in track.items():
                 x1 = bb[0]
                 y1 = bb[1]
                 x2 = bb[2]
                 y2 = bb[3]
-                writer.writerow([frame + 1, track_id + 1, x1 + 1, y1 + 1,
-                                 x2 - x1 + 1, y2 - y1 + 1, -1, -1, -1, -1])
+                writer.writerow(
+                    [
+                        frame + 1,
+                        track_id + 1,
+                        x1 + 1,
+                        y1 + 1,
+                        x2 - x1 + 1,
+                        y2 - y1 + 1,
+                        -1,
+                        -1,
+                        -1,
+                        -1,
+                    ]
+                )
 
 
-def get_track_dict(subseqs_dir: Path, net_weight_path: Path,
-                   device: str = 'cuda'):
-    subseqs = sorted(subseqs_dir.iterdir(), key=lambda f: int(f.stem.split('_')[1]))
+def get_track_dict(subseqs_dir: Path, net_weight_path: Path, device: str = "cuda"):
+    subseqs = sorted(subseqs_dir.iterdir(), key=lambda f: int(f.stem.split("_")[1]))
 
     edge_classifier = Net().to(device).eval()
-    edge_classifier.load_state_dict(torch.load(net_weight_path, map_location=torch.device(device)))
+    edge_classifier.load_state_dict(
+        torch.load(net_weight_path, map_location=torch.device(device))
+    )
 
-    id_to_t_box, final_edges = combine_subsequences(subseqs,
-                                                    edge_classifier,
-                                                    device)
-    tracks = get_tracks(final_edges)
+    id_to_t_box, edge_scores, num_nodes = combine_subsequences(subseqs, edge_classifier, device)
+    tracks = get_tracks(edge_scores, num_nodes)
 
     track_dict = defaultdict(dict)
     for track_id, track in enumerate(tracks):
@@ -136,18 +174,26 @@ def get_track_dict(subseqs_dir: Path, net_weight_path: Path,
     return track_dict
 
 
-if __name__ == '__main__':
+if __name__ == "__main__":
     parser = argparse.ArgumentParser()
-    parser.add_argument('--preprocessed_sequence', type=str,
-                        help='Path to the preprocessed sequence (!) folder')
-    parser.add_argument('--net_weights', type=str,
-                        help='Path to the trained GraphNN')
-    parser.add_argument('--out', type=str,
-                        help='Path of the directory where to write output '
-                             'files of the tracks in the MOT16 format')
+    parser.add_argument(
+        "--preprocessed_sequences",
+        type=str,
+        nargs="+",
+        help="Path(s) to the preprocessed sequence (!) folder",
+    )
+    parser.add_argument("--net_weights", type=str, help="Path to the trained GraphNN")
+    parser.add_argument(
+        "--out",
+        type=str,
+        help="Path of the directory where to write output "
+        "files of the tracks in the MOT16 format",
+    )
+    parser.add_argument("--device", default="cuda")
     args = parser.parse_args()
 
-    all_tracks = get_track_dict(Path(args.preprocessed_sequence),
-                                Path(args.net_weights))
+    for sequence_folder in args.preprocessed_sequences:
+        seq_folder = Path(sequence_folder)
+        all_tracks = get_track_dict(seq_folder, Path(args.net_weights), args.device)
 
-    write_tracks_to_csv(all_tracks, Path(args.out))
+        write_tracks_to_csv(all_tracks, Path(args.out) / f"{seq_folder.name}.txt")
